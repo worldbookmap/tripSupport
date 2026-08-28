@@ -9,6 +9,7 @@ create table if not exists locations (
   lng double precision not null,
   history text not null default '',
   tourist_info text not null default '',
+  region text not null default '기타', -- 유럽/중동/아시아/북미/남미/기타
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );

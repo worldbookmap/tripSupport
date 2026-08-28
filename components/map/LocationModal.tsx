@@ -1,9 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { BookOpen, Landmark, MapPinned, Plus, Save, Search, Sparkles, Trash2, TriangleAlert, X } from 'lucide-react';
+import { BookOpen, Globe2, Landmark, MapPinned, Plus, Save, Search, Sparkles, Trash2, TriangleAlert, X } from 'lucide-react';
 import type { Book } from '@/lib/types';
 import type { BookSearchResult } from '@/lib/kakaoBooks';
+import { guessRegion, REGION_COLORS, REGIONS, type Region } from '@/lib/regions';
 
 const inputClass =
   'w-full rounded-xl border border-white/[0.08] bg-black/30 px-3.5 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition-colors focus:border-accent/50 focus:ring-2 focus:ring-accent/20';
@@ -23,6 +24,7 @@ export function LocationModal({ lat, lng, locationId, onClose, onSaved, onDelete
   const [name, setName] = useState('');
   const [history, setHistory] = useState('');
   const [touristInfo, setTouristInfo] = useState('');
+  const [region, setRegion] = useState<Region>(() => (lat != null && lng != null ? guessRegion(lat, lng) : '기타'));
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(!!locationId);
   const [saving, setSaving] = useState(false);
@@ -41,6 +43,7 @@ export function LocationModal({ lat, lng, locationId, onClose, onSaved, onDelete
         setName(data.name);
         setHistory(data.history ?? '');
         setTouristInfo(data.tourist_info ?? '');
+        setRegion(data.region ?? '기타');
         setBooks(data.books ?? []);
       }
       setLoading(false);
@@ -67,14 +70,14 @@ export function LocationModal({ lat, lng, locationId, onClose, onSaved, onDelete
         const res = await fetch(`/api/locations/${id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, history, tourist_info: touristInfo }),
+          body: JSON.stringify({ name, history, tourist_info: touristInfo, region }),
         });
         if (!res.ok) throw new Error('저장에 실패했습니다.');
       } else {
         const res = await fetch('/api/locations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, lat, lng, history, tourist_info: touristInfo }),
+          body: JSON.stringify({ name, lat, lng, history, tourist_info: touristInfo, region }),
         });
         if (!res.ok) throw new Error('저장에 실패했습니다.');
         const created = await res.json();
@@ -158,14 +161,34 @@ export function LocationModal({ lat, lng, locationId, onClose, onSaved, onDelete
             <p className="text-sm text-zinc-500">불러오는 중...</p>
           ) : (
             <div className="space-y-5">
-              <div>
-                <label className={labelClass}>지역 이름</label>
-                <input
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className={inputClass}
-                  placeholder="예: 파리"
-                />
+              <div className="flex gap-3">
+                <div className="flex-1">
+                  <label className={labelClass}>지역 이름</label>
+                  <input
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className={inputClass}
+                    placeholder="예: 파리"
+                  />
+                </div>
+                <div className="w-32">
+                  <label className={labelClass}>
+                    <Globe2 className="h-3.5 w-3.5" style={{ color: REGION_COLORS[region].dot }} strokeWidth={2.25} />
+                    권역
+                  </label>
+                  <select
+                    value={region}
+                    onChange={(e) => setRegion(e.target.value as Region)}
+                    className={`${inputClass} appearance-none`}
+                    style={{ color: REGION_COLORS[region].text }}
+                  >
+                    {REGIONS.map((r) => (
+                      <option key={r} value={r} style={{ color: '#000' }}>
+                        {r}
+                      </option>
+                    ))}
+                  </select>
+                </div>
               </div>
               <div>
                 <label className={labelClass}>

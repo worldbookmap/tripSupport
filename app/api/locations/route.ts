@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { sanitizeSearchTerm } from '@/lib/search';
+import { guessRegion, REGIONS } from '@/lib/regions';
 
 export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams.get('q')?.trim();
@@ -19,15 +20,24 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
-  const { name, lat, lng, history, tourist_info } = body ?? {};
+  const { name, lat, lng, history, tourist_info, region } = body ?? {};
 
   if (typeof name !== 'string' || !name.trim() || typeof lat !== 'number' || typeof lng !== 'number') {
     return NextResponse.json({ error: 'name, lat, lng는 필수입니다.' }, { status: 400 });
   }
 
+  const resolvedRegion = REGIONS.includes(region) ? region : guessRegion(lat, lng);
+
   const { data, error } = await supabase
     .from('locations')
-    .insert({ name, lat, lng, history: history ?? '', tourist_info: tourist_info ?? '' })
+    .insert({
+      name,
+      lat,
+      lng,
+      history: history ?? '',
+      tourist_info: tourist_info ?? '',
+      region: resolvedRegion,
+    })
     .select()
     .single();
 

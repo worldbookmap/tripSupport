@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { BookOpen, History, Landmark, Pencil, Trash2, X } from 'lucide-react';
 import type { LocationDetail } from '@/lib/types';
+import { REGION_COLORS } from '@/lib/regions';
 
 interface LocationPopupProps {
   locationId: string;
@@ -35,7 +36,22 @@ export function LocationPopup({ locationId, onClose, onEdit, onDeleted }: Locati
   return (
     <div className="absolute inset-x-3 top-16 z-[1000] max-h-[65vh] overflow-y-auto rounded-2xl border border-white/[0.08] bg-surface/95 shadow-2xl shadow-black/50 backdrop-blur-md sm:inset-x-auto sm:right-4 sm:top-4 sm:max-h-[80vh] sm:w-80">
       <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] px-4 py-3">
-        <h3 className="truncate text-[15px] font-semibold text-zinc-50">{detail?.name ?? '불러오는 중...'}</h3>
+        <div className="flex min-w-0 items-center gap-2">
+          <h3 className="truncate text-[15px] font-semibold text-zinc-50">{detail?.name ?? '불러오는 중...'}</h3>
+          {detail &&
+            (() => {
+              const region = detail.region ?? '기타';
+              const colors = REGION_COLORS[region];
+              return (
+                <span
+                  className="shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium"
+                  style={{ borderColor: colors.border, background: colors.bg, color: colors.text }}
+                >
+                  {region}
+                </span>
+              );
+            })()}
+        </div>
         <button
           onClick={onClose}
           className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-zinc-500 transition-colors hover:bg-white/[0.08] hover:text-zinc-200"

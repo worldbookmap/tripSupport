@@ -31,7 +31,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   if (!body) return NextResponse.json({ error: '잘못된 요청입니다.' }, { status: 400 });
 
   const updates: Record<string, unknown> = {};
-  for (const key of ['name', 'lat', 'lng', 'history', 'tourist_info'] as const) {
+  for (const key of ['name', 'lat', 'lng', 'history', 'tourist_info', 'region'] as const) {
     if (key in body) updates[key] = body[key];
   }
   updates.updated_at = new Date().toISOString();
