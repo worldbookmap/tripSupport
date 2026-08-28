@@ -117,8 +117,8 @@ export function MapView() {
         className="absolute inset-0"
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-          url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, style by Wikimedia'
+          url="https://maps.wikimedia.org/osm-intl/{z}/{x}/{y}{r}.png"
         />
         <MapController onReady={(map) => (mapRef.current = map)} />
         <CreateOnDoubleClick onCreate={(lat, lng) => setModalState({ lat, lng })} />
