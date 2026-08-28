@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { MapContainer, Marker, TileLayer, useMap, useMapEvent } from 'react-leaflet';
 import L from 'leaflet';
+import { MapPin, Search } from 'lucide-react';
 import type { Location } from '@/lib/types';
 import { LocationModal } from './LocationModal';
 import { LocationPopup } from './LocationPopup';
@@ -88,20 +89,24 @@ export function MapView() {
   return (
     <div className="relative flex-1">
       <div className="absolute left-16 top-4 z-[1000] w-64">
-        <input
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          placeholder="지역 검색"
-          className="w-full rounded border border-black/20 bg-white px-3 py-2 text-sm shadow dark:border-white/20 dark:bg-zinc-900"
-        />
+        <div className="relative">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" strokeWidth={2.25} />
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="지역 검색"
+            className="w-full rounded-xl border border-white/[0.08] bg-surface/90 py-2 pl-9 pr-3 text-[13px] text-zinc-100 shadow-lg shadow-black/30 outline-none backdrop-blur-md transition-colors placeholder:text-zinc-500 focus:border-accent/50 focus:ring-2 focus:ring-accent/20"
+          />
+        </div>
         {searchMatches.length > 0 && (
-          <ul className="mt-1 max-h-56 overflow-y-auto rounded border border-black/10 bg-white shadow dark:border-white/10 dark:bg-zinc-900">
+          <ul className="mt-1.5 max-h-56 overflow-y-auto rounded-xl border border-white/[0.08] bg-surface/95 py-1 shadow-xl shadow-black/40 backdrop-blur-md">
             {searchMatches.map((loc) => (
               <li key={loc.id}>
                 <button
                   onClick={() => handleSelectSearchResult(loc)}
-                  className="block w-full px-3 py-2 text-left text-sm hover:bg-black/5 dark:hover:bg-white/10"
+                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-[13px] text-zinc-300 transition-colors hover:bg-white/[0.06] hover:text-zinc-50"
                 >
+                  <MapPin className="h-3.5 w-3.5 text-accent" strokeWidth={2.25} />
                   {loc.name}
                 </button>
               </li>
