@@ -17,7 +17,7 @@ async function findOrCreateAuthorId(name: string): Promise<string> {
 export async function POST(request: NextRequest, { params }: Params) {
   const { id: locationId } = await params;
   const body = await request.json().catch(() => null);
-  const { googleBooksId, title, authors, thumbnailUrl, description } = body ?? {};
+  const { sourceId, title, authors, thumbnailUrl, description } = body ?? {};
 
   if (typeof title !== 'string' || !title.trim()) {
     return NextResponse.json({ error: 'title은 필수입니다.' }, { status: 400 });
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest, { params }: Params) {
   const { data: book, error: bookError } = await supabase
     .from('books')
     .insert({
-      google_books_id: googleBooksId ?? null,
+      source_id: sourceId ?? null,
       title,
       thumbnail_url: thumbnailUrl ?? null,
       description: description ?? '',

@@ -22,7 +22,7 @@ create table if not exists authors (
 
 create table if not exists books (
   id uuid primary key default gen_random_uuid(),
-  google_books_id text,
+  source_id text, -- 카카오 도서 API의 ISBN
   title text not null,
   thumbnail_url text,
   description text not null default '',

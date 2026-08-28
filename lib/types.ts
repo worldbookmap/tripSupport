@@ -18,7 +18,7 @@ export interface Author {
 
 export interface Book {
   id: string;
-  google_books_id: string | null;
+  source_id: string | null;
   title: string;
   thumbnail_url: string | null;
   description: string;

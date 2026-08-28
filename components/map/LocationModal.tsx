@@ -2,14 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import type { Book } from '@/lib/types';
-
-interface GoogleBookResult {
-  googleBooksId: string;
-  title: string;
-  authors: string[];
-  thumbnailUrl: string | null;
-  description: string;
-}
+import type { BookSearchResult } from '@/lib/kakaoBooks';
 
 interface LocationModalProps {
   lat?: number;
@@ -31,7 +24,7 @@ export function LocationModal({ lat, lng, locationId, onClose, onSaved, onDelete
   const [error, setError] = useState<string | null>(null);
 
   const [bookQuery, setBookQuery] = useState('');
-  const [bookResults, setBookResults] = useState<GoogleBookResult[]>([]);
+  const [bookResults, setBookResults] = useState<BookSearchResult[]>([]);
   const [searchingBooks, setSearchingBooks] = useState(false);
 
   useEffect(() => {
@@ -100,18 +93,18 @@ export function LocationModal({ lat, lng, locationId, onClose, onSaved, onDelete
   async function handleSearchBooks() {
     if (!bookQuery.trim()) return;
     setSearchingBooks(true);
-    const res = await fetch(`/api/books/search-google?q=${encodeURIComponent(bookQuery)}`);
+    const res = await fetch(`/api/books/search-kakao?q=${encodeURIComponent(bookQuery)}`);
     if (res.ok) setBookResults(await res.json());
     setSearchingBooks(false);
   }
 
-  async function handleAddBook(result: GoogleBookResult) {
+  async function handleAddBook(result: BookSearchResult) {
     if (!id) return;
     const res = await fetch(`/api/locations/${id}/books`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        googleBooksId: result.googleBooksId,
+        sourceId: result.sourceId,
         title: result.title,
         authors: result.authors,
         thumbnailUrl: result.thumbnailUrl,
@@ -190,7 +183,7 @@ export function LocationModal({ lat, lng, locationId, onClose, onSaved, onDelete
             </div>
 
             <div className="border-t border-black/10 pt-4 dark:border-white/10">
-              <h3 className="mb-2 text-sm font-semibold">관련 책 (Google Books)</h3>
+              <h3 className="mb-2 text-sm font-semibold">관련 책 (카카오 도서)</h3>
               {!id && <p className="mb-2 text-xs text-zinc-500">지역을 먼저 저장하면 책을 추가할 수 있어요.</p>}
               <div className="mb-3 flex gap-2">
                 <input
@@ -213,7 +206,7 @@ export function LocationModal({ lat, lng, locationId, onClose, onSaved, onDelete
               {bookResults.length > 0 && (
                 <ul className="mb-4 max-h-48 space-y-2 overflow-y-auto rounded border border-black/10 p-2 dark:border-white/10">
                   {bookResults.map((result) => (
-                    <li key={result.googleBooksId} className="flex items-center gap-2 text-sm">
+                    <li key={result.sourceId} className="flex items-center gap-2 text-sm">
                       {result.thumbnailUrl && (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={result.thumbnailUrl} alt="" className="h-10 w-7 object-cover" />
