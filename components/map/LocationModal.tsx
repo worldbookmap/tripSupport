@@ -100,6 +100,7 @@ export function LocationModal({ lat, lng, locationId, onClose, onSaved, onDelete
 
   async function handleAddBook(result: BookSearchResult) {
     if (!id) return;
+    setError(null);
     const res = await fetch(`/api/locations/${id}/books`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -111,13 +112,24 @@ export function LocationModal({ lat, lng, locationId, onClose, onSaved, onDelete
         description: result.description,
       }),
     });
-    if (res.ok) await refreshBooks(id);
+    if (res.ok) {
+      await refreshBooks(id);
+    } else {
+      const body = await res.json().catch(() => null);
+      setError(body?.error ?? '책 추가에 실패했습니다.');
+    }
   }
 
   async function handleRemoveBook(bookId: string) {
     if (!id) return;
+    setError(null);
     const res = await fetch(`/api/books/${bookId}`, { method: 'DELETE' });
-    if (res.ok) await refreshBooks(id);
+    if (res.ok) {
+      await refreshBooks(id);
+    } else {
+      const body = await res.json().catch(() => null);
+      setError(body?.error ?? '책 삭제에 실패했습니다.');
+    }
   }
 
   return (

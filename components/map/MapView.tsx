@@ -87,7 +87,7 @@ export function MapView() {
 
   return (
     <div className="relative flex-1">
-      <div className="absolute left-4 top-4 z-[1000] w-64">
+      <div className="absolute left-16 top-4 z-[1000] w-64">
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
@@ -114,7 +114,7 @@ export function MapView() {
         center={[37.5665, 126.978]}
         zoom={4}
         doubleClickZoom={false}
-        className="h-full w-full"
+        className="absolute inset-0"
       >
         <TileLayer
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
