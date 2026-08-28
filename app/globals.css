@@ -85,3 +85,12 @@ body {
 .leaflet-control-attribution a {
   color: #d4d4d8 !important;
 }
+
+@media (max-width: 640px) {
+  .react-flow__minimap {
+    display: none;
+  }
+  .react-flow__attribution {
+    display: none;
+  }
+}

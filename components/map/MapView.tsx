@@ -88,7 +88,7 @@ export function MapView() {
 
   return (
     <div className="relative flex-1">
-      <div className="absolute left-16 top-4 z-[1000] w-64">
+      <div className="absolute left-14 right-4 top-3 z-[1000] sm:left-16 sm:right-auto sm:top-4 sm:w-64">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" strokeWidth={2.25} />
           <input

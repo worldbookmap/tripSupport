@@ -143,14 +143,14 @@ export function MindmapView() {
 
   return (
     <div className="relative flex-1">
-      <div className="absolute left-4 top-4 z-10">
+      <div className="absolute left-3 right-3 top-3 z-10 sm:left-4 sm:right-auto sm:top-4">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" strokeWidth={2.25} />
           <input
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="작가, 책, 사건, 지역 검색"
-            className="w-64 rounded-xl border border-white/[0.08] bg-surface/90 py-2 pl-9 pr-3 text-[13px] text-zinc-100 shadow-lg shadow-black/30 outline-none backdrop-blur-md transition-colors placeholder:text-zinc-500 focus:border-accent/50 focus:ring-2 focus:ring-accent/20"
+            className="w-full rounded-xl border border-white/[0.08] bg-surface/90 py-2 pl-9 pr-3 text-[13px] text-zinc-100 shadow-lg shadow-black/30 outline-none backdrop-blur-md transition-colors placeholder:text-zinc-500 focus:border-accent/50 focus:ring-2 focus:ring-accent/20 sm:w-64"
           />
         </div>
         <div className="mt-2 flex flex-wrap gap-1.5">

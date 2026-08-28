@@ -61,7 +61,7 @@ export function EventModal({ event, onClose, onSaved }: EventModalProps) {
   return (
     <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <div className="w-full max-w-md rounded-2xl border border-white/[0.08] bg-surface shadow-2xl shadow-black/60">
-        <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] px-6 py-4">
+        <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] px-4 sm:px-6 py-4">
           <h2 className="flex items-center gap-2 text-[15px] font-semibold text-zinc-50">
             <ScrollText className="h-4 w-4 text-gold" strokeWidth={2.25} />
             {event ? '사건 수정' : '사건 추가'}
@@ -74,7 +74,7 @@ export function EventModal({ event, onClose, onSaved }: EventModalProps) {
           </button>
         </div>
 
-        <div className="space-y-4 px-6 py-5">
+        <div className="space-y-4 px-4 sm:px-6 py-5">
           <div>
             <label className={labelClass}>
               <CalendarClock className="h-3.5 w-3.5 text-zinc-500" strokeWidth={2.25} />
