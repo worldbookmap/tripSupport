@@ -116,11 +116,13 @@ export function MindmapView() {
         />
       </div>
 
-      <ReactFlow nodes={nodes} edges={edges} onNodeClick={handleNodeClick} fitView>
-        <Background />
-        <Controls />
-        <MiniMap />
-      </ReactFlow>
+      <div className="absolute inset-0">
+        <ReactFlow nodes={nodes} edges={edges} onNodeClick={handleNodeClick} fitView>
+          <Background />
+          <Controls />
+          <MiniMap />
+        </ReactFlow>
+      </div>
 
       {activeNode?.type === 'location' && (
         <LocationModal
