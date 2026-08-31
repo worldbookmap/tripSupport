@@ -14,7 +14,7 @@ import {
   type NodeProps,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { BookOpen, Landmark, MapPin, Search, User, Waypoints } from 'lucide-react';
+import { BookOpen, Building2, Flag, Landmark, MapPin, Search, User, Waypoints } from 'lucide-react';
 import type { HistoricalEvent, MindmapEdge, MindmapNode } from '@/lib/types';
 import { LocationModal } from '@/components/map/LocationModal';
 import { EventModal } from '@/components/timeline/EventModal';
@@ -22,6 +22,8 @@ import { BookPanel } from './BookPanel';
 import { AuthorPanel } from './AuthorPanel';
 
 const NODE_STYLE: Record<MindmapNode['type'], { icon: typeof User; color: string; ring: string; bg: string }> = {
+  country: { icon: Flag, color: '#fdba74', ring: 'rgba(253,186,116,0.35)', bg: 'rgba(249,115,22,0.1)' },
+  city: { icon: Building2, color: '#fca5a5', ring: 'rgba(252,165,165,0.35)', bg: 'rgba(244,63,94,0.1)' },
   author: { icon: User, color: '#c4b5fd', ring: 'rgba(196,181,253,0.35)', bg: 'rgba(139,92,246,0.12)' },
   book: { icon: BookOpen, color: '#6ee7b7', ring: 'rgba(110,231,183,0.3)', bg: 'rgba(16,185,129,0.1)' },
   location: { icon: MapPin, color: '#a5b4fc', ring: 'rgba(165,180,252,0.35)', bg: 'rgba(139,139,249,0.12)' },
@@ -51,11 +53,25 @@ function MindmapNodeCard({ data }: NodeProps) {
 
 const nodeTypes = { mindmap: MindmapNodeCard };
 
-const COLUMN_ORDER: MindmapNode['type'][] = ['author', 'book', 'location', 'event'];
-const COLUMN_X: Record<MindmapNode['type'], number> = { author: 0, book: 300, location: 620, event: 940 };
+const COLUMN_ORDER: MindmapNode['type'][] = ['author', 'book', 'country', 'city', 'location', 'event'];
+const COLUMN_X: Record<MindmapNode['type'], number> = {
+  author: 0,
+  book: 300,
+  country: 620,
+  city: 920,
+  location: 1220,
+  event: 1540,
+};
 
 function layout(nodes: MindmapNode[]): Node[] {
-  const byType: Record<MindmapNode['type'], MindmapNode[]> = { author: [], book: [], location: [], event: [] };
+  const byType: Record<MindmapNode['type'], MindmapNode[]> = {
+    author: [],
+    book: [],
+    country: [],
+    city: [],
+    location: [],
+    event: [],
+  };
   nodes.forEach((n) => byType[n.type].push(n));
 
   const result: Node[] = [];
@@ -118,7 +134,10 @@ export function MindmapView() {
   );
 
   const handleNodeClick: NodeMouseHandler = async (_event, node) => {
-    const [type, rawId] = node.id.split(':') as [MindmapNode['type'], string];
+    const sep = node.id.indexOf(':');
+    const type = node.id.slice(0, sep) as MindmapNode['type'];
+    const rawId = node.id.slice(sep + 1);
+    if (type === 'country' || type === 'city') return;
     if (type === 'event') {
       const res = await fetch(`/api/events/${rawId}`);
       if (res.ok) {
@@ -159,6 +178,8 @@ export function MindmapView() {
             const labelMap: Record<MindmapNode['type'], string> = {
               author: '작가',
               book: '책',
+              country: '나라',
+              city: '도시',
               location: '지역',
               event: '사건',
             };

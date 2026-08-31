@@ -9,10 +9,16 @@ create table if not exists locations (
   lng double precision not null,
   history text not null default '',
   tourist_info text not null default '',
-  region text not null default '기타', -- 유럽/중동/아시아/북미/남미/기타
+  region text not null default '기타', -- 대륙: 유럽/중동/아시아/북미/남미/기타
+  country text not null default '', -- 나라
+  city text not null default '', -- 도시
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+-- 기존에 만든 테이블에도 반영되도록 (이미 있으면 무시됨)
+alter table locations add column if not exists country text not null default '';
+alter table locations add column if not exists city text not null default '';
 
 create table if not exists authors (
   id uuid primary key default gen_random_uuid(),
@@ -50,3 +56,5 @@ create index if not exists books_location_id_idx on books(location_id);
 create index if not exists historical_events_location_id_idx on historical_events(location_id);
 create index if not exists historical_events_year_idx on historical_events(year);
 create index if not exists book_authors_author_id_idx on book_authors(author_id);
+create index if not exists locations_country_idx on locations(country);
+create index if not exists locations_city_idx on locations(city);

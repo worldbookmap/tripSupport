@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
-  const { name, lat, lng, history, tourist_info, region } = body ?? {};
+  const { name, lat, lng, history, tourist_info, region, country, city } = body ?? {};
 
   if (typeof name !== 'string' || !name.trim() || typeof lat !== 'number' || typeof lng !== 'number') {
     return NextResponse.json({ error: 'name, lat, lng는 필수입니다.' }, { status: 400 });
@@ -37,6 +37,8 @@ export async function POST(request: NextRequest) {
       history: history ?? '',
       tourist_info: tourist_info ?? '',
       region: resolvedRegion,
+      country: typeof country === 'string' ? country : '',
+      city: typeof city === 'string' ? city : '',
     })
     .select()
     .single();

@@ -1,7 +1,23 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { BookOpen, Globe2, Landmark, MapPinned, Plus, Save, Search, Sparkles, Trash2, TriangleAlert, X } from 'lucide-react';
+import {
+  BookOpen,
+  Building2,
+  Flag,
+  Globe2,
+  Landmark,
+  Loader2,
+  MapPinned,
+  Plus,
+  Save,
+  Search,
+  Sparkles,
+  Trash2,
+  TriangleAlert,
+  Wand2,
+  X,
+} from 'lucide-react';
 import type { Book } from '@/lib/types';
 import type { BookSearchResult } from '@/lib/kakaoBooks';
 import { guessRegion, REGION_COLORS, REGIONS, type Region } from '@/lib/regions';
@@ -25,6 +41,11 @@ export function LocationModal({ lat, lng, locationId, onClose, onSaved, onDelete
   const [history, setHistory] = useState('');
   const [touristInfo, setTouristInfo] = useState('');
   const [region, setRegion] = useState<Region>(() => (lat != null && lng != null ? guessRegion(lat, lng) : '기타'));
+  const [country, setCountry] = useState('');
+  const [city, setCity] = useState('');
+  const [savedLat, setSavedLat] = useState<number | undefined>(lat);
+  const [savedLng, setSavedLng] = useState<number | undefined>(lng);
+  const [geoLoading, setGeoLoading] = useState(false);
   const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(!!locationId);
   const [saving, setSaving] = useState(false);
@@ -44,11 +65,37 @@ export function LocationModal({ lat, lng, locationId, onClose, onSaved, onDelete
         setHistory(data.history ?? '');
         setTouristInfo(data.tourist_info ?? '');
         setRegion(data.region ?? '기타');
+        setCountry(data.country ?? '');
+        setCity(data.city ?? '');
+        setSavedLat(data.lat);
+        setSavedLng(data.lng);
         setBooks(data.books ?? []);
       }
       setLoading(false);
     })();
   }, [locationId]);
+
+  async function handleAutoFill() {
+    if (savedLat == null || savedLng == null) return;
+    setGeoLoading(true);
+    try {
+      const res = await fetch(`/api/geocode/reverse?lat=${savedLat}&lng=${savedLng}`);
+      if (res.ok) {
+        const data = await res.json();
+        if (data.country) setCountry(data.country);
+        if (data.city) setCity(data.city);
+      }
+    } finally {
+      setGeoLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    // 새 지역을 추가하는 경우, 좌표를 찍자마자 나라/도시를 자동으로 채워봅니다.
+    if (locationId || lat == null || lng == null) return;
+    handleAutoFill();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [locationId, lat, lng]);
 
   async function refreshBooks(currentId: string) {
     const res = await fetch(`/api/locations/${currentId}`);
@@ -70,14 +117,14 @@ export function LocationModal({ lat, lng, locationId, onClose, onSaved, onDelete
         const res = await fetch(`/api/locations/${id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, history, tourist_info: touristInfo, region }),
+          body: JSON.stringify({ name, history, tourist_info: touristInfo, region, country, city }),
         });
         if (!res.ok) throw new Error('저장에 실패했습니다.');
       } else {
         const res = await fetch('/api/locations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, lat, lng, history, tourist_info: touristInfo, region }),
+          body: JSON.stringify({ name, lat, lng, history, tourist_info: touristInfo, region, country, city }),
         });
         if (!res.ok) throw new Error('저장에 실패했습니다.');
         const created = await res.json();
@@ -190,6 +237,48 @@ export function LocationModal({ lat, lng, locationId, onClose, onSaved, onDelete
                   </select>
                 </div>
               </div>
+
+              <div className="flex items-end gap-3">
+                <div className="flex-1">
+                  <label className={labelClass}>
+                    <Flag className="h-3.5 w-3.5 text-zinc-400" strokeWidth={2.25} />
+                    나라
+                  </label>
+                  <input
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                    className={inputClass}
+                    placeholder="예: 프랑스"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className={labelClass}>
+                    <Building2 className="h-3.5 w-3.5 text-zinc-400" strokeWidth={2.25} />
+                    도시
+                  </label>
+                  <input
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    className={inputClass}
+                    placeholder="예: 파리"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleAutoFill}
+                  disabled={savedLat == null || savedLng == null || geoLoading}
+                  title="좌표로 나라/도시 자동 채우기"
+                  className="flex h-[42px] shrink-0 items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-white/[0.08] hover:text-zinc-50 disabled:opacity-40"
+                >
+                  {geoLoading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.25} />
+                  ) : (
+                    <Wand2 className="h-3.5 w-3.5" strokeWidth={2.25} />
+                  )}
+                  자동 채우기
+                </button>
+              </div>
+
               <div>
                 <label className={labelClass}>
                   <Landmark className="h-3.5 w-3.5 text-gold" strokeWidth={2.25} />

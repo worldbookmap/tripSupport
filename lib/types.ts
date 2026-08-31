@@ -8,6 +8,8 @@ export interface Location {
   history: string;
   tourist_info: string;
   region: Region;
+  country: string;
+  city: string;
   created_at: string;
   updated_at: string;
 }
@@ -45,7 +47,7 @@ export interface HistoricalEvent {
 
 export interface MindmapNode {
   id: string;
-  type: 'location' | 'book' | 'event' | 'author';
+  type: 'location' | 'book' | 'event' | 'author' | 'country' | 'city';
   label: string;
 }
 
