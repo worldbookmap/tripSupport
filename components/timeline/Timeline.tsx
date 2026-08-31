@@ -2,7 +2,19 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { MapPin, Plus, ScrollText, Search, ZoomIn, ZoomOut } from 'lucide-react';
+import {
+  CalendarClock,
+  GanttChart,
+  List,
+  MapPin,
+  Pencil,
+  Plus,
+  ScrollText,
+  Search,
+  Trash2,
+  ZoomIn,
+  ZoomOut,
+} from 'lucide-react';
 import type { HistoricalEvent, Location } from '@/lib/types';
 import { REGION_COLORS, REGIONS, type Region } from '@/lib/regions';
 import { EventModal } from './EventModal';
@@ -15,6 +27,8 @@ const LABEL_W = 168;
 const ROW_H = 30;
 const LANE_PAD = 10;
 const MIN_GAP_PX = 132;
+
+type ViewMode = 'vertical' | 'horizontal';
 
 interface Lane {
   country: string;
@@ -53,7 +67,8 @@ export function Timeline() {
   const [search, setSearch] = useState('');
   const [modalState, setModalState] = useState<{ event?: HistoricalEvent } | null>(null);
   const [zoom, setZoom] = useState(1);
-  const itemRefs = useRef<Map<string, HTMLButtonElement>>(new Map());
+  const [view, setView] = useState<ViewMode>('vertical');
+  const itemRefs = useRef<Map<string, HTMLElement>>(new Map());
 
   async function load() {
     const res = await fetch('/api/events' + (search ? `?q=${encodeURIComponent(search)}` : ''));
@@ -115,6 +130,17 @@ export function Timeline() {
     return result;
   }, [events, laneKeyOf]);
 
+  // 세로 보기: 같은 대륙 그룹을 연도순 단일 목록으로 펼칩니다.
+  const verticalGroups = useMemo(
+    () =>
+      groups.map((g) => ({
+        continent: g.continent,
+        colors: g.colors,
+        events: g.lanes.flatMap((lane) => lane.events).sort((a, b) => a.year - b.year),
+      })),
+    [groups]
+  );
+
   const { domainMin, domainMax, pxPerYear, ticks } = useMemo(() => {
     if (events.length === 0) {
       return { domainMin: 0, domainMax: 1, pxPerYear: 1, ticks: [] as number[] };
@@ -144,7 +170,13 @@ export function Timeline() {
     if (target) {
       itemRefs.current.get(target.id)?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
     }
-  }, [highlightLocationId, events, pxPerYear]);
+  }, [highlightLocationId, events, pxPerYear, view]);
+
+  async function handleDelete(id: string) {
+    if (!confirm('이 사건을 삭제할까요?')) return;
+    const res = await fetch(`/api/events/${id}`, { method: 'DELETE' });
+    if (res.ok) load();
+  }
 
   return (
     <div className="flex-1 px-3 py-6 sm:px-6 sm:py-8">
@@ -160,20 +192,42 @@ export function Timeline() {
         </div>
         <div className="flex shrink-0 items-center gap-1 rounded-xl border border-white/[0.08] bg-surface p-1">
           <button
-            onClick={() => setZoom((z) => Math.max(0.25, +(z / 1.5).toFixed(3)))}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-white/[0.08] hover:text-zinc-100"
-            title="축소"
+            onClick={() => setView('vertical')}
+            className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+              view === 'vertical' ? 'bg-accent/20 text-accent-strong' : 'text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-100'
+            }`}
+            title="세로 보기 (연도순 목록)"
           >
-            <ZoomOut className="h-4 w-4" strokeWidth={2.25} />
+            <List className="h-4 w-4" strokeWidth={2.25} />
           </button>
           <button
-            onClick={() => setZoom((z) => Math.min(8, +(z * 1.5).toFixed(3)))}
-            className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-white/[0.08] hover:text-zinc-100"
-            title="확대"
+            onClick={() => setView('horizontal')}
+            className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors ${
+              view === 'horizontal' ? 'bg-accent/20 text-accent-strong' : 'text-zinc-400 hover:bg-white/[0.08] hover:text-zinc-100'
+            }`}
+            title="가로 보기 (지역별 스윔레인)"
           >
-            <ZoomIn className="h-4 w-4" strokeWidth={2.25} />
+            <GanttChart className="h-4 w-4" strokeWidth={2.25} />
           </button>
         </div>
+        {view === 'horizontal' && (
+          <div className="flex shrink-0 items-center gap-1 rounded-xl border border-white/[0.08] bg-surface p-1">
+            <button
+              onClick={() => setZoom((z) => Math.max(0.25, +(z / 1.5).toFixed(3)))}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-white/[0.08] hover:text-zinc-100"
+              title="축소"
+            >
+              <ZoomOut className="h-4 w-4" strokeWidth={2.25} />
+            </button>
+            <button
+              onClick={() => setZoom((z) => Math.min(8, +(z * 1.5).toFixed(3)))}
+              className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-400 transition-colors hover:bg-white/[0.08] hover:text-zinc-100"
+              title="확대"
+            >
+              <ZoomIn className="h-4 w-4" strokeWidth={2.25} />
+            </button>
+          </div>
+        )}
         <button
           onClick={() => setModalState({})}
           className="flex shrink-0 items-center gap-1.5 rounded-xl bg-gradient-to-b from-accent to-accent-strong px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-accent/20 transition-opacity hover:opacity-90"
@@ -190,10 +244,88 @@ export function Timeline() {
         </div>
       )}
 
-      {groups.length === 0 ? (
+      {events.length === 0 ? (
         <div className="mx-auto flex max-w-3xl flex-col items-center gap-3 rounded-2xl border border-dashed border-white/[0.08] py-16 text-center">
           <ScrollText className="h-8 w-8 text-zinc-700" strokeWidth={1.5} />
           <p className="text-sm text-zinc-500">등록된 사건이 없습니다.</p>
+        </div>
+      ) : view === 'vertical' ? (
+        <div className="mx-auto max-w-3xl space-y-8">
+          {verticalGroups.map(({ continent, colors, events: continentEvents }) => (
+            <section key={continent}>
+              <div className="mb-3 flex items-center gap-2">
+                <span
+                  className="flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[12px] font-semibold"
+                  style={{ borderColor: colors.border, background: colors.bg, color: colors.text }}
+                >
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: colors.dot }} />
+                  {continent}
+                </span>
+                <span className="text-[11px] text-zinc-600">{continentEvents.length}건</span>
+              </div>
+
+              <ol className="relative space-y-4 border-l pl-7" style={{ borderColor: colors.border }}>
+                {continentEvents.map((event) => {
+                  const highlighted = highlightLocationId != null && event.location_id === highlightLocationId;
+                  return (
+                    <li
+                      key={event.id}
+                      ref={(el) => {
+                        if (el) itemRefs.current.set(event.id, el);
+                        else itemRefs.current.delete(event.id);
+                      }}
+                      className="relative"
+                    >
+                      <span
+                        className="absolute -left-[34px] top-4 flex h-3.5 w-3.5 items-center justify-center rounded-full ring-4 ring-background"
+                        style={{
+                          background: highlighted ? '#d4b06a' : colors.dot,
+                          boxShadow: highlighted ? '0 0 12px 1px rgba(212,176,106,0.6)' : undefined,
+                        }}
+                      />
+                      <div
+                        className="rounded-2xl border p-4 transition-colors"
+                        style={
+                          highlighted
+                            ? { borderColor: 'rgba(212,176,106,0.3)', background: 'rgba(212,176,106,0.05)' }
+                            : { borderColor: colors.border, background: colors.bg }
+                        }
+                      >
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                              <CalendarClock className="h-3 w-3" strokeWidth={2.25} />
+                              {formatYear(event.year)}년
+                            </p>
+                            <p className="mt-1 text-[15px] font-semibold text-zinc-50">{event.title}</p>
+                            {event.description && (
+                              <p className="mt-1.5 whitespace-pre-wrap text-[13px] leading-relaxed text-zinc-400">
+                                {event.description}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex shrink-0 gap-1">
+                            <button
+                              onClick={() => setModalState({ event })}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-white/[0.08] hover:text-zinc-200"
+                            >
+                              <Pencil className="h-3.5 w-3.5" strokeWidth={2.25} />
+                            </button>
+                            <button
+                              onClick={() => handleDelete(event.id)}
+                              className="flex h-7 w-7 items-center justify-center rounded-lg text-red-400/70 transition-colors hover:bg-red-500/10 hover:text-red-400"
+                            >
+                              <Trash2 className="h-3.5 w-3.5" strokeWidth={2.25} />
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ol>
+            </section>
+          ))}
         </div>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-white/[0.08] bg-black/10">
@@ -296,9 +428,11 @@ export function Timeline() {
         </div>
       )}
 
-      <p className="mx-auto mt-3 max-w-3xl text-[11.5px] text-zinc-600">
-        사건을 클릭하면 수정하거나 삭제할 수 있어요. 옆으로 스크롤해서 다른 연도를 볼 수 있습니다.
-      </p>
+      {view === 'horizontal' && (
+        <p className="mx-auto mt-3 max-w-3xl text-[11.5px] text-zinc-600">
+          사건을 클릭하면 수정하거나 삭제할 수 있어요. 옆으로 스크롤해서 다른 연도를 볼 수 있습니다.
+        </p>
+      )}
 
       {modalState && (
         <EventModal
