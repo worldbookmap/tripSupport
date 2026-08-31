@@ -15,7 +15,7 @@ export function TopNav() {
   if (pathname === '/login') return null;
 
   return (
-    <header className="sticky top-0 z-[3000] flex items-center justify-between gap-2 border-b border-white/[0.06] bg-background/80 px-3 py-2.5 backdrop-blur-xl sm:px-5 sm:py-3">
+    <header className="sticky top-0 z-[3000] flex items-center justify-between gap-2 border-b border-white/[0.06] bg-background/80 px-3 py-2.5 backdrop-blur-xl sm:px-5 sm:py-3 print:hidden">
       <Link href="/map" className="flex min-w-0 items-center gap-2 sm:gap-2.5">
         <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-accent to-accent-strong shadow-[0_0_20px_-4px_rgba(139,139,249,0.6)] sm:h-8 sm:w-8">
           <Compass className="h-4 w-4 text-white sm:h-4.5 sm:w-4.5" strokeWidth={2.25} />

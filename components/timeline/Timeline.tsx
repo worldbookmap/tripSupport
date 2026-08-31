@@ -9,6 +9,7 @@ import {
   MapPin,
   Pencil,
   Plus,
+  Printer,
   ScrollText,
   Search,
   Trash2,
@@ -141,6 +142,13 @@ export function Timeline() {
     [groups]
   );
 
+  // 인쇄용 표: 대륙(1행)>나라(2행)를 열로, 연도를 행으로 교차 배치합니다.
+  const printYears = useMemo(() => Array.from(new Set(events.map((e) => e.year))).sort((a, b) => a - b), [events]);
+
+  function handlePrint() {
+    window.print();
+  }
+
   const { domainMin, domainMax, pxPerYear, ticks } = useMemo(() => {
     if (events.length === 0) {
       return { domainMin: 0, domainMax: 1, pxPerYear: 1, ticks: [] as number[] };
@@ -179,7 +187,8 @@ export function Timeline() {
   }
 
   return (
-    <div className="flex-1 px-3 py-6 sm:px-6 sm:py-8">
+    <>
+    <div className="flex-1 px-3 py-6 sm:px-6 sm:py-8 print:hidden">
       <div className="mx-auto mb-6 flex max-w-3xl items-center gap-2">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-zinc-500" strokeWidth={2.25} />
@@ -228,6 +237,14 @@ export function Timeline() {
             </button>
           </div>
         )}
+        <button
+          onClick={handlePrint}
+          disabled={events.length === 0}
+          className="flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl border border-white/[0.08] bg-surface text-zinc-400 transition-colors hover:bg-white/[0.08] hover:text-zinc-100 disabled:opacity-40"
+          title="대륙·나라별 연표를 PDF로 인쇄"
+        >
+          <Printer className="h-4 w-4" strokeWidth={2.25} />
+        </button>
         <button
           onClick={() => setModalState({})}
           className="flex shrink-0 items-center gap-1.5 rounded-xl bg-gradient-to-b from-accent to-accent-strong px-4 py-2.5 text-sm font-medium text-white shadow-lg shadow-accent/20 transition-opacity hover:opacity-90"
@@ -445,5 +462,53 @@ export function Timeline() {
         />
       )}
     </div>
+
+    {/* 인쇄 전용: 대륙(1행)>나라(2행)를 열로, 연도를 행으로 하는 표. 화면에는 보이지 않고 인쇄 시에만 표시됩니다. */}
+    <div className="hidden print:block">
+      <h1 className="mb-4 text-lg font-bold text-black">세계사 연표</h1>
+      <table className="w-full border-collapse text-[10px] text-black">
+        <thead>
+          <tr>
+            <th rowSpan={2} className="border border-black px-2 py-1 align-bottom">
+              연도
+            </th>
+            {groups.map((g) => (
+              <th key={g.continent} colSpan={g.lanes.length} className="border border-black px-2 py-1">
+                {g.continent}
+              </th>
+            ))}
+          </tr>
+          <tr>
+            {groups.flatMap((g) =>
+              g.lanes.map((lane) => (
+                <th key={`${g.continent}-${lane.country}`} className="border border-black px-2 py-1 font-normal">
+                  {lane.country}
+                </th>
+              ))
+            )}
+          </tr>
+        </thead>
+        <tbody>
+          {printYears.map((year) => (
+            <tr key={year}>
+              <td className="whitespace-nowrap border border-black px-2 py-1 font-medium">{formatYear(year)}</td>
+              {groups.flatMap((g) =>
+                g.lanes.map((lane) => {
+                  const cellEvents = lane.events.filter((e) => e.year === year);
+                  return (
+                    <td key={`${g.continent}-${lane.country}-${year}`} className="border border-black px-2 py-1 align-top">
+                      {cellEvents.map((e) => (
+                        <div key={e.id}>{e.title}</div>
+                      ))}
+                    </td>
+                  );
+                })
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+    </>
   );
 }
