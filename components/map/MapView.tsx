@@ -23,6 +23,13 @@ function CreateOnDoubleClick({ onCreate }: { onCreate: (lat: number, lng: number
   return null;
 }
 
+function CloseOnMapClick({ onClose }: { onClose: () => void }) {
+  useMapEvent('click', () => {
+    onClose();
+  });
+  return null;
+}
+
 function MapController({ onReady }: { onReady: (map: L.Map) => void }) {
   const map = useMap();
   useEffect(() => {
@@ -133,6 +140,7 @@ export function MapView() {
         />
         <MapController onReady={(map) => (mapRef.current = map)} />
         <CreateOnDoubleClick onCreate={(lat, lng) => setModalState({ lat, lng })} />
+        <CloseOnMapClick onClose={() => setPopupLocationId(null)} />
         {locations.map((loc) => (
           <Marker
             key={loc.id}
