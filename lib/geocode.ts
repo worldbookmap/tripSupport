@@ -3,6 +3,20 @@ export interface ReverseGeocodeResult {
   city: string;
 }
 
+export interface PlaceSearchResult {
+  name: string;
+  displayName: string;
+  lat: number;
+  lng: number;
+}
+
+interface NominatimSearchItem {
+  display_name?: string;
+  name?: string;
+  lat?: string;
+  lon?: string;
+}
+
 interface NominatimAddress {
   country?: string;
   city?: string;
@@ -36,4 +50,32 @@ export async function reverseGeocode(lat: number, lng: number): Promise<ReverseG
     country: address.country ?? '',
     city: address.city ?? address.town ?? address.village ?? address.county ?? address.state ?? '',
   };
+}
+
+// 지명(영문 도시명 포함)으로 좌표를 찾는 순방향 지오코딩.
+export async function searchPlaces(query: string): Promise<PlaceSearchResult[]> {
+  const params = new URLSearchParams({
+    q: query,
+    format: 'jsonv2',
+    limit: '6',
+    'accept-language': 'ko',
+  });
+
+  const res = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
+    headers: { 'User-Agent': 'tripSupport-personal-travel-log/1.0' },
+  });
+
+  if (!res.ok) {
+    throw new Error(`장소 검색에 실패했습니다 (${res.status}).`);
+  }
+
+  const data: NominatimSearchItem[] = await res.json();
+  return data
+    .filter((item) => item.lat && item.lon)
+    .map((item) => ({
+      name: (item.name || item.display_name?.split(',')[0] || query).trim(),
+      displayName: item.display_name ?? '',
+      lat: Number(item.lat),
+      lng: Number(item.lon),
+    }));
 }
