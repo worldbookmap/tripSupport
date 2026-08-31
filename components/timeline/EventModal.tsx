@@ -10,15 +10,16 @@ const labelClass = 'mb-1.5 flex items-center gap-1.5 text-[13px] font-medium tex
 
 interface EventModalProps {
   event?: HistoricalEvent;
+  defaultLocationId?: string;
   onClose: () => void;
   onSaved: () => void;
 }
 
-export function EventModal({ event, onClose, onSaved }: EventModalProps) {
+export function EventModal({ event, defaultLocationId, onClose, onSaved }: EventModalProps) {
   const [year, setYear] = useState(event ? String(event.year) : '');
   const [title, setTitle] = useState(event?.title ?? '');
   const [description, setDescription] = useState(event?.description ?? '');
-  const [locationId, setLocationId] = useState(event?.location_id ?? '');
+  const [locationId, setLocationId] = useState(event?.location_id ?? defaultLocationId ?? '');
   const [locations, setLocations] = useState<Location[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

@@ -4,13 +4,16 @@ import { useEffect, useState } from 'react';
 import {
   BookOpen,
   Building2,
+  CalendarClock,
   Flag,
   Globe2,
   Landmark,
   Loader2,
   MapPinned,
+  Pencil,
   Plus,
   Save,
+  ScrollText,
   Search,
   Sparkles,
   Trash2,
@@ -18,9 +21,14 @@ import {
   Wand2,
   X,
 } from 'lucide-react';
-import type { Book } from '@/lib/types';
+import type { Book, HistoricalEvent } from '@/lib/types';
 import type { BookSearchResult } from '@/lib/kakaoBooks';
 import { guessRegion, REGION_COLORS, REGIONS, type Region } from '@/lib/regions';
+import { EventModal } from '@/components/timeline/EventModal';
+
+function formatYear(year: number) {
+  return year < 0 ? `기원전 ${-year}` : `${year}`;
+}
 
 const inputClass =
   'w-full rounded-xl border border-white/[0.08] bg-black/30 px-3.5 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition-colors focus:border-accent/50 focus:ring-2 focus:ring-accent/20';
@@ -55,6 +63,9 @@ export function LocationModal({ lat, lng, locationId, onClose, onSaved, onDelete
   const [bookResults, setBookResults] = useState<BookSearchResult[]>([]);
   const [searchingBooks, setSearchingBooks] = useState(false);
 
+  const [events, setEvents] = useState<HistoricalEvent[]>([]);
+  const [eventModalState, setEventModalState] = useState<{ event?: HistoricalEvent } | null>(null);
+
   useEffect(() => {
     if (!locationId) return;
     (async () => {
@@ -73,6 +84,7 @@ export function LocationModal({ lat, lng, locationId, onClose, onSaved, onDelete
       }
       setLoading(false);
     })();
+    refreshEvents(locationId);
   }, [locationId]);
 
   async function handleAutoFill() {
@@ -103,6 +115,18 @@ export function LocationModal({ lat, lng, locationId, onClose, onSaved, onDelete
       const data = await res.json();
       setBooks(data.books ?? []);
     }
+  }
+
+  async function refreshEvents(currentId: string) {
+    const res = await fetch(`/api/events?locationId=${currentId}`);
+    if (res.ok) setEvents(await res.json());
+  }
+
+  async function handleDeleteEvent(eventId: string) {
+    if (!id) return;
+    if (!confirm('이 사건을 삭제할까요?')) return;
+    const res = await fetch(`/api/events/${eventId}`, { method: 'DELETE' });
+    if (res.ok) await refreshEvents(id);
   }
 
   async function handleSave() {
@@ -188,6 +212,7 @@ export function LocationModal({ lat, lng, locationId, onClose, onSaved, onDelete
   }
 
   return (
+    <>
     <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
       <div className="max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-white/[0.08] bg-surface shadow-2xl shadow-black/60">
         <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] px-4 sm:px-6 py-4">
@@ -332,6 +357,58 @@ export function LocationModal({ lat, lng, locationId, onClose, onSaved, onDelete
               </div>
 
               <div className="border-t border-white/[0.06] pt-5">
+                <div className="mb-3 flex items-center justify-between gap-2">
+                  <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-zinc-200">
+                    <ScrollText className="h-4 w-4 text-gold" strokeWidth={2.25} />
+                    연표 사건 <span className="font-normal text-zinc-500">(연도별 역사)</span>
+                  </h3>
+                  <button
+                    onClick={() => setEventModalState({})}
+                    disabled={!id}
+                    className="flex shrink-0 items-center gap-1 rounded-lg border border-white/[0.08] px-2.5 py-1 text-xs font-medium text-zinc-300 transition-colors hover:bg-accent/20 hover:text-accent-strong disabled:opacity-40"
+                  >
+                    <Plus className="h-3 w-3" strokeWidth={2.5} />
+                    사건 추가
+                  </button>
+                </div>
+                {!id && (
+                  <p className="mb-3 text-xs text-zinc-500">
+                    지역을 먼저 저장하면 연도별 사건을 추가할 수 있어요. 여기서 추가한 사건은 연표 화면에도 그대로 반영됩니다.
+                  </p>
+                )}
+                {id && events.length === 0 ? (
+                  <p className="text-xs text-zinc-600">등록된 사건이 없습니다.</p>
+                ) : (
+                  <ul className="space-y-1.5">
+                    {events.map((event) => (
+                      <li
+                        key={event.id}
+                        className="flex items-center gap-2.5 rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2 text-sm"
+                      >
+                        <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-gold">
+                          <CalendarClock className="h-3 w-3" strokeWidth={2.25} />
+                          {formatYear(event.year)}
+                        </span>
+                        <span className="min-w-0 flex-1 truncate text-zinc-200">{event.title}</span>
+                        <button
+                          onClick={() => setEventModalState({ event })}
+                          className="flex shrink-0 h-6 w-6 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-white/[0.08] hover:text-zinc-200"
+                        >
+                          <Pencil className="h-3.5 w-3.5" strokeWidth={2.25} />
+                        </button>
+                        <button
+                          onClick={() => handleDeleteEvent(event.id)}
+                          className="flex shrink-0 h-6 w-6 items-center justify-center rounded-lg text-red-400/70 transition-colors hover:bg-red-500/10 hover:text-red-400"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" strokeWidth={2.25} />
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+
+              <div className="border-t border-white/[0.06] pt-5">
                 <h3 className="mb-3 flex items-center gap-1.5 text-[13px] font-semibold text-zinc-200">
                   <BookOpen className="h-4 w-4 text-emerald-400" strokeWidth={2.25} />
                   관련 책 <span className="font-normal text-zinc-500">(카카오 도서)</span>
@@ -425,5 +502,18 @@ export function LocationModal({ lat, lng, locationId, onClose, onSaved, onDelete
         </div>
       </div>
     </div>
+
+    {eventModalState && id && (
+      <EventModal
+        event={eventModalState.event}
+        defaultLocationId={id}
+        onClose={() => setEventModalState(null)}
+        onSaved={() => {
+          setEventModalState(null);
+          refreshEvents(id);
+        }}
+      />
+    )}
+    </>
   );
 }

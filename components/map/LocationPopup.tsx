@@ -2,9 +2,13 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { BookOpen, History, Landmark, Pencil, Trash2, X } from 'lucide-react';
-import type { LocationDetail } from '@/lib/types';
+import { BookOpen, CalendarClock, History, Landmark, Pencil, ScrollText, Trash2, X } from 'lucide-react';
+import type { HistoricalEvent, LocationDetail } from '@/lib/types';
 import { REGION_COLORS } from '@/lib/regions';
+
+function formatYear(year: number) {
+  return year < 0 ? `기원전 ${-year}` : `${year}`;
+}
 
 interface LocationPopupProps {
   locationId: string;
@@ -16,15 +20,20 @@ interface LocationPopupProps {
 export function LocationPopup({ locationId, onClose, onEdit, onDeleted }: LocationPopupProps) {
   const router = useRouter();
   const [detail, setDetail] = useState<LocationDetail | null>(null);
+  const [events, setEvents] = useState<HistoricalEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
     setDetail(null);
+    setEvents([]);
     fetch(`/api/locations/${locationId}`)
       .then((res) => (res.ok ? res.json() : null))
       .then(setDetail)
       .finally(() => setLoading(false));
+    fetch(`/api/events?locationId=${locationId}`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setEvents);
   }, [locationId]);
 
   async function handleDelete() {
@@ -71,6 +80,25 @@ export function LocationPopup({ locationId, onClose, onEdit, onDeleted }: Locati
                 역사
               </h4>
               <p className="whitespace-pre-wrap leading-relaxed text-zinc-300">{detail.history}</p>
+            </div>
+          )}
+          {events.length > 0 && (
+            <div>
+              <h4 className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                <ScrollText className="h-3.5 w-3.5 text-gold" strokeWidth={2.25} />
+                연표
+              </h4>
+              <ul className="space-y-1.5">
+                {events.map((event) => (
+                  <li key={event.id} className="flex items-start gap-2">
+                    <span className="mt-0.5 flex shrink-0 items-center gap-1 text-xs font-semibold text-gold">
+                      <CalendarClock className="h-3 w-3" strokeWidth={2.25} />
+                      {formatYear(event.year)}
+                    </span>
+                    <span className="min-w-0 flex-1 text-zinc-300">{event.title}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           )}
           {detail.tourist_info && (
