@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  applyNodeChanges,
   Background,
   Controls,
   Handle,
@@ -10,10 +11,12 @@ import {
   ReactFlow,
   type Edge,
   type Node,
+  type NodeChange,
   type NodeMouseHandler,
   type NodeProps,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import dagre from '@dagrejs/dagre';
 import { BookOpen, Building2, Flag, Landmark, MapPin, Search, User, Waypoints } from 'lucide-react';
 import type { HistoricalEvent, MindmapEdge, MindmapNode } from '@/lib/types';
 import { LocationModal } from '@/components/map/LocationModal';
@@ -53,39 +56,33 @@ function MindmapNodeCard({ data }: NodeProps) {
 
 const nodeTypes = { mindmap: MindmapNodeCard };
 
-const COLUMN_ORDER: MindmapNode['type'][] = ['author', 'book', 'country', 'city', 'location', 'event'];
-const COLUMN_X: Record<MindmapNode['type'], number> = {
-  author: 0,
-  book: 300,
-  country: 620,
-  city: 920,
-  location: 1220,
-  event: 1540,
-};
+const NODE_W = 220;
+const NODE_H = 40;
 
-function layout(nodes: MindmapNode[]): Node[] {
-  const byType: Record<MindmapNode['type'], MindmapNode[]> = {
-    author: [],
-    book: [],
-    country: [],
-    city: [],
-    location: [],
-    event: [],
-  };
-  nodes.forEach((n) => byType[n.type].push(n));
+// 실제 연결 관계(나라→도시→지역→책/사건, 작가→책)를 기준으로 자동 배치합니다.
+// 고정된 열 배치 대신 그래프 구조로 정렬하면, 무관한 노드들이 시각적으로 겹쳐서
+// 마치 연결된 것처럼 보이는 착시를 줄일 수 있습니다.
+function layout(nodes: MindmapNode[], edges: MindmapEdge[]): Node[] {
+  const g = new dagre.graphlib.Graph();
+  g.setDefaultEdgeLabel(() => ({}));
+  g.setGraph({ rankdir: 'LR', nodesep: 28, ranksep: 120 });
 
-  const result: Node[] = [];
-  COLUMN_ORDER.forEach((type) => {
-    byType[type].forEach((n, i) => {
-      result.push({
-        id: n.id,
-        type: 'mindmap',
-        position: { x: COLUMN_X[type], y: i * 76 },
-        data: { label: n.label, type: n.type, dimmed: false },
-      });
-    });
+  nodes.forEach((n) => g.setNode(n.id, { width: NODE_W, height: NODE_H }));
+  edges.forEach((e) => {
+    if (g.hasNode(e.source) && g.hasNode(e.target)) g.setEdge(e.source, e.target);
   });
-  return result;
+
+  dagre.layout(g);
+
+  return nodes.map((n) => {
+    const pos = g.node(n.id);
+    return {
+      id: n.id,
+      type: 'mindmap',
+      position: { x: pos.x - NODE_W / 2, y: pos.y - NODE_H / 2 },
+      data: { label: n.label, type: n.type, dimmed: false },
+    };
+  });
 }
 
 type ActiveNode = { type: MindmapNode['type']; id: string };
@@ -97,6 +94,8 @@ export function MindmapView() {
   const [loading, setLoading] = useState(true);
   const [activeNode, setActiveNode] = useState<ActiveNode | null>(null);
   const [activeEvent, setActiveEvent] = useState<HistoricalEvent | null>(null);
+
+  const [positionedNodes, setPositionedNodes] = useState<Node[]>([]);
 
   async function refetchMindmap() {
     const res = await fetch('/api/mindmap');
@@ -111,16 +110,25 @@ export function MindmapView() {
     refetchMindmap().finally(() => setLoading(false));
   }, []);
 
+  // 데이터가 바뀔 때만 자동 배치를 다시 계산합니다. 드래그로 옮긴 위치는
+  // onNodesChange가 반영하며, 여기서 매번 새로 계산하지 않습니다.
+  useEffect(() => {
+    setPositionedNodes(layout(rawNodes, rawEdges));
+  }, [rawNodes, rawEdges]);
+
+  const onNodesChange = useCallback((changes: NodeChange[]) => {
+    setPositionedNodes((nds) => applyNodeChanges(changes, nds));
+  }, []);
+
   const nodes = useMemo(() => {
-    const laidOut = layout(rawNodes);
     const term = search.trim().toLowerCase();
-    if (!term) return laidOut;
-    return laidOut.map((n) => {
+    if (!term) return positionedNodes;
+    return positionedNodes.map((n) => {
       const original = rawNodes.find((r) => r.id === n.id);
       const matches = original?.label.toLowerCase().includes(term) ?? false;
       return { ...n, data: { ...n.data, dimmed: !matches } };
     });
-  }, [rawNodes, search]);
+  }, [positionedNodes, rawNodes, search]);
 
   const edges: Edge[] = useMemo(
     () =>
@@ -208,6 +216,7 @@ export function MindmapView() {
           nodes={nodes}
           edges={edges}
           nodeTypes={nodeTypes}
+          onNodesChange={onNodesChange}
           onNodeClick={handleNodeClick}
           colorMode="dark"
           fitView
