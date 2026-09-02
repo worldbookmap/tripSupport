@@ -10,72 +10,93 @@ export interface PlaceSearchResult {
   lng: number;
 }
 
-interface NominatimSearchItem {
-  display_name?: string;
-  name?: string;
-  lat?: string;
-  lon?: string;
+interface GoogleAddressComponent {
+  long_name: string;
+  short_name: string;
+  types: string[];
 }
 
-interface NominatimAddress {
-  country?: string;
-  city?: string;
-  town?: string;
-  village?: string;
-  county?: string;
-  state?: string;
+interface GoogleGeocodeResult {
+  formatted_address: string;
+  address_components: GoogleAddressComponent[];
+  geometry: { location: { lat: number; lng: number } };
 }
 
-// OpenStreetMap Nominatim: 무료, 키 불필요. 사용 정책상 식별 가능한 User-Agent가 필요합니다.
+interface GoogleGeocodeResponse {
+  status: string;
+  results: GoogleGeocodeResult[];
+  error_message?: string;
+}
+
+function getApiKey(): string {
+  const key = process.env.GOOGLE_MAPS_API_KEY;
+  if (!key) {
+    throw new Error('GOOGLE_MAPS_API_KEY 환경변수가 설정되지 않았습니다.');
+  }
+  return key;
+}
+
+function findComponent(components: GoogleAddressComponent[], type: string): string | undefined {
+  return components.find((c) => c.types.includes(type))?.long_name;
+}
+
+// Google Geocoding API: 결과 언어를 영어로 고정해 나라/도시명 표기를 일관되게 유지합니다.
 export async function reverseGeocode(lat: number, lng: number): Promise<ReverseGeocodeResult> {
   const params = new URLSearchParams({
-    lat: String(lat),
-    lon: String(lng),
-    format: 'jsonv2',
-    'accept-language': 'ko',
+    latlng: `${lat},${lng}`,
+    language: 'en',
+    key: getApiKey(),
   });
 
-  const res = await fetch(`https://nominatim.openstreetmap.org/reverse?${params.toString()}`, {
-    headers: { 'User-Agent': 'tripSupport-personal-travel-log/1.0' },
-  });
-
+  const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?${params.toString()}`);
   if (!res.ok) {
     throw new Error(`역지오코딩 요청에 실패했습니다 (${res.status}).`);
   }
 
-  const data: { address?: NominatimAddress } = await res.json();
-  const address = data.address ?? {};
+  const data: GoogleGeocodeResponse = await res.json();
+  if (data.status === 'ZERO_RESULTS') {
+    return { country: '', city: '' };
+  }
+  if (data.status !== 'OK') {
+    throw new Error(`역지오코딩 실패: ${data.status}${data.error_message ? ` - ${data.error_message}` : ''}`);
+  }
 
+  const components = data.results[0].address_components;
   return {
-    country: address.country ?? '',
-    city: address.city ?? address.town ?? address.village ?? address.county ?? address.state ?? '',
+    country: findComponent(components, 'country') ?? '',
+    city:
+      findComponent(components, 'locality') ??
+      findComponent(components, 'administrative_area_level_2') ??
+      findComponent(components, 'administrative_area_level_1') ??
+      '',
   };
 }
 
-// 지명(영문 도시명 포함)으로 좌표를 찾는 순방향 지오코딩.
+// 한글/영문 등 어떤 언어로 검색해도 좌표를 찾아주는 순방향 지오코딩. 결과 표기는 영어로 고정.
 export async function searchPlaces(query: string): Promise<PlaceSearchResult[]> {
   const params = new URLSearchParams({
-    q: query,
-    format: 'jsonv2',
-    limit: '6',
-    'accept-language': 'ko',
+    address: query,
+    language: 'en',
+    key: getApiKey(),
   });
 
-  const res = await fetch(`https://nominatim.openstreetmap.org/search?${params.toString()}`, {
-    headers: { 'User-Agent': 'tripSupport-personal-travel-log/1.0' },
-  });
-
+  const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?${params.toString()}`);
   if (!res.ok) {
     throw new Error(`장소 검색에 실패했습니다 (${res.status}).`);
   }
 
-  const data: NominatimSearchItem[] = await res.json();
-  return data
-    .filter((item) => item.lat && item.lon)
-    .map((item) => ({
-      name: (item.name || item.display_name?.split(',')[0] || query).trim(),
-      displayName: item.display_name ?? '',
-      lat: Number(item.lat),
-      lng: Number(item.lon),
-    }));
+  const data: GoogleGeocodeResponse = await res.json();
+  if (data.status === 'ZERO_RESULTS') {
+    return [];
+  }
+  if (data.status !== 'OK') {
+    throw new Error(`장소 검색 실패: ${data.status}${data.error_message ? ` - ${data.error_message}` : ''}`);
+  }
+
+  return data.results.slice(0, 6).map((item) => ({
+    name: item.address_components[0]?.long_name ?? item.formatted_address.split(',')[0] ?? query,
+    displayName: item.formatted_address,
+    lat: item.geometry.location.lat,
+    lng: item.geometry.location.lng,
+  }));
 }
