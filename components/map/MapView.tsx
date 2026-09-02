@@ -122,7 +122,7 @@ export function MapView() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="저장한 지역 검색 또는 영문 도시명 검색"
+              placeholder="저장한 지역 검색 또는 장소/지명 검색"
               className="w-full rounded-xl border border-accent/30 bg-surface py-2 pl-9 pr-3 text-[13px] text-zinc-100 shadow-lg shadow-black/40 outline-none transition-colors placeholder:text-zinc-500 focus:border-accent/70 focus:ring-2 focus:ring-accent/25"
             />
           </div>

@@ -5,6 +5,7 @@ import {
   BookOpen,
   Building2,
   CalendarClock,
+  CheckCircle2,
   Flag,
   Globe2,
   Landmark,
@@ -59,6 +60,7 @@ export function LocationModal({ lat, lng, locationId, defaultName, onClose, onSa
   const [loading, setLoading] = useState(!!locationId);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [savedToast, setSavedToast] = useState(false);
 
   const [bookQuery, setBookQuery] = useState('');
   const [bookResults, setBookResults] = useState<BookSearchResult[]>([]);
@@ -135,6 +137,7 @@ export function LocationModal({ lat, lng, locationId, defaultName, onClose, onSa
       setError('지역 이름을 입력해주세요.');
       return;
     }
+    const wasExisting = Boolean(id);
     setSaving(true);
     setError(null);
     try {
@@ -156,6 +159,11 @@ export function LocationModal({ lat, lng, locationId, defaultName, onClose, onSa
         setId(created.id);
       }
       onSaved();
+      // 기존 지역 수정일 때만 저장 후 바로 닫음. 새 지역은 이어서 책/사건을 추가할 수 있도록 모달을 유지.
+      if (wasExisting) {
+        setSavedToast(true);
+        setTimeout(onClose, 1100);
+      }
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -214,8 +222,20 @@ export function LocationModal({ lat, lng, locationId, defaultName, onClose, onSa
 
   return (
     <>
-    <div className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm">
-      <div className="max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-white/[0.08] bg-surface shadow-2xl shadow-black/60">
+    {savedToast && (
+      <div className="fixed left-1/2 top-6 z-[2100] flex -translate-x-1/2 items-center gap-2 rounded-xl border border-emerald-500/30 bg-surface px-4 py-2.5 text-sm font-medium text-emerald-300 shadow-2xl shadow-black/50">
+        <CheckCircle2 className="h-4 w-4" strokeWidth={2.25} />
+        저장되었습니다
+      </div>
+    )}
+    <div
+      className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-white/[0.08] bg-surface shadow-2xl shadow-black/60"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] px-4 sm:px-6 py-4">
           <h2 className="flex items-center gap-2 text-[15px] font-semibold text-zinc-50">
             <MapPinned className="h-4 w-4 text-accent-strong" strokeWidth={2.25} />
