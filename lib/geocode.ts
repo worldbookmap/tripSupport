@@ -72,31 +72,41 @@ export async function reverseGeocode(lat: number, lng: number): Promise<ReverseG
   };
 }
 
-// 한글/영문 등 어떤 언어로 검색해도 좌표를 찾아주는 순방향 지오코딩. 결과 표기는 영어로 고정.
+interface GooglePlace {
+  displayName?: { text: string; languageCode: string };
+  formattedAddress?: string;
+  location: { latitude: number; longitude: number };
+}
+
+interface GooglePlacesTextSearchResponse {
+  places?: GooglePlace[];
+  error?: { message: string };
+}
+
+// Google Places API(Text Search): 지명뿐 아니라 상호명/랜드마크 등 구글 지도 검색창과 비슷한 범위로 찾습니다.
 export async function searchPlaces(query: string): Promise<PlaceSearchResult[]> {
-  const params = new URLSearchParams({
-    address: query,
-    language: 'en',
-    key: getApiKey(),
+  const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Goog-Api-Key': getApiKey(),
+      'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location',
+    },
+    body: JSON.stringify({ textQuery: query, languageCode: 'en' }),
   });
 
-  const res = await fetch(`https://maps.googleapis.com/maps/api/geocode/json?${params.toString()}`);
+  const data: GooglePlacesTextSearchResponse = await res.json();
   if (!res.ok) {
-    throw new Error(`장소 검색에 실패했습니다 (${res.status}).`);
+    throw new Error(`장소 검색에 실패했습니다: ${data.error?.message ?? res.status}`);
   }
-
-  const data: GoogleGeocodeResponse = await res.json();
-  if (data.status === 'ZERO_RESULTS') {
+  if (!data.places) {
     return [];
   }
-  if (data.status !== 'OK') {
-    throw new Error(`장소 검색 실패: ${data.status}${data.error_message ? ` - ${data.error_message}` : ''}`);
-  }
 
-  return data.results.slice(0, 6).map((item) => ({
-    name: item.address_components[0]?.long_name ?? item.formatted_address.split(',')[0] ?? query,
-    displayName: item.formatted_address,
-    lat: item.geometry.location.lat,
-    lng: item.geometry.location.lng,
+  return data.places.slice(0, 6).map((place) => ({
+    name: place.displayName?.text ?? query,
+    displayName: place.formattedAddress ?? '',
+    lat: place.location.latitude,
+    lng: place.location.longitude,
   }));
 }

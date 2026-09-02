@@ -28,6 +28,7 @@ export function MapView() {
   const [search, setSearch] = useState('');
   const [geoResults, setGeoResults] = useState<PlaceSearchResult[]>([]);
   const [geoSearching, setGeoSearching] = useState(false);
+  const [previewMarker, setPreviewMarker] = useState<{ lat: number; lng: number } | null>(null);
 
   const clickTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -79,6 +80,7 @@ export function MapView() {
     mapRef.current?.setZoom(13);
     setSearch('');
     setGeoResults([]);
+    setPreviewMarker({ lat: result.lat, lng: result.lng });
     setModalState({ lat: result.lat, lng: result.lng, defaultName: result.name });
   }
 
@@ -195,6 +197,12 @@ export function MapView() {
           {locations.map((loc) => (
             <Marker key={loc.id} position={{ lat: loc.lat, lng: loc.lng }} onClick={() => handleMarkerClick(loc)} />
           ))}
+          {previewMarker && (
+            <Marker
+              position={{ lat: previewMarker.lat, lng: previewMarker.lng }}
+              icon="https://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+            />
+          )}
         </GoogleMap>
       </APIProvider>
 
@@ -204,12 +212,19 @@ export function MapView() {
           lng={modalState.lng}
           locationId={modalState.locationId}
           defaultName={modalState.defaultName}
-          onClose={() => setModalState(null)}
-          onSaved={() => loadLocations()}
+          onClose={() => {
+            setModalState(null);
+            setPreviewMarker(null);
+          }}
+          onSaved={() => {
+            loadLocations();
+            setPreviewMarker(null);
+          }}
           onDeleted={() => {
             loadLocations();
             setModalState(null);
             setPopupLocationId(null);
+            setPreviewMarker(null);
           }}
         />
       )}
