@@ -28,7 +28,7 @@ export function MapView() {
   const [search, setSearch] = useState('');
   const [geoResults, setGeoResults] = useState<PlaceSearchResult[]>([]);
   const [geoSearching, setGeoSearching] = useState(false);
-  const [previewMarker, setPreviewMarker] = useState<{ lat: number; lng: number } | null>(null);
+  const [previewMarker, setPreviewMarker] = useState<{ lat: number; lng: number; name: string } | null>(null);
 
   const clickTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -80,8 +80,12 @@ export function MapView() {
     mapRef.current?.setZoom(13);
     setSearch('');
     setGeoResults([]);
-    setPreviewMarker({ lat: result.lat, lng: result.lng });
-    setModalState({ lat: result.lat, lng: result.lng, defaultName: result.name });
+    setPreviewMarker({ lat: result.lat, lng: result.lng, name: result.name });
+  }
+
+  function handlePreviewMarkerClick() {
+    if (!previewMarker) return;
+    setModalState({ lat: previewMarker.lat, lng: previewMarker.lng, defaultName: previewMarker.name });
   }
 
   function handleAddAtCenter() {
@@ -201,6 +205,7 @@ export function MapView() {
             <Marker
               position={{ lat: previewMarker.lat, lng: previewMarker.lng }}
               icon="https://maps.google.com/mapfiles/ms/icons/blue-dot.png"
+              onClick={handlePreviewMarkerClick}
             />
           )}
         </GoogleMap>
