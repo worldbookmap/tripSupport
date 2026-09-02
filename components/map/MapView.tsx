@@ -1,40 +1,20 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { MapContainer, Marker, TileLayer, useMap, useMapEvent } from 'react-leaflet';
-import L from 'leaflet';
+import { APIProvider, Map as GoogleMap, Marker, RenderingType, useMap } from '@vis.gl/react-google-maps';
 import { Loader2, MapPin, MapPinPlus, Search } from 'lucide-react';
 import type { Location } from '@/lib/types';
 import type { PlaceSearchResult } from '@/lib/geocode';
 import { LocationModal } from './LocationModal';
 import { LocationPopup } from './LocationPopup';
 
-// Default Leaflet marker icons reference asset paths that break under bundlers;
-// point them at the CDN copies instead of shipping/aliasing the PNGs ourselves.
-L.Icon.Default.mergeOptions({
-  iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-  iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-  shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-});
+const GOOGLE_MAPS_BROWSER_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY ?? '';
+const DOUBLE_CLICK_THRESHOLD_MS = 300;
 
-function CreateOnDoubleClick({ onCreate }: { onCreate: (lat: number, lng: number) => void }) {
-  useMapEvent('dblclick', (e) => {
-    onCreate(e.latlng.lat, e.latlng.lng);
-  });
-  return null;
-}
-
-function CloseOnMapClick({ onClose }: { onClose: () => void }) {
-  useMapEvent('click', () => {
-    onClose();
-  });
-  return null;
-}
-
-function MapController({ onReady }: { onReady: (map: L.Map) => void }) {
+function MapController({ onReady }: { onReady: (map: google.maps.Map) => void }) {
   const map = useMap();
   useEffect(() => {
-    onReady(map);
+    if (map) onReady(map);
   }, [map, onReady]);
   return null;
 }
@@ -50,7 +30,7 @@ export function MapView() {
   const [geoSearching, setGeoSearching] = useState(false);
 
   const clickTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
-  const mapRef = useRef<L.Map | null>(null);
+  const mapRef = useRef<google.maps.Map | null>(null);
 
   const loadLocations = useCallback(async () => {
     const res = await fetch('/api/locations');
@@ -88,13 +68,15 @@ export function MapView() {
   }, [search]);
 
   function handleSelectSearchResult(loc: Location) {
-    mapRef.current?.flyTo([loc.lat, loc.lng], 13);
+    mapRef.current?.panTo({ lat: loc.lat, lng: loc.lng });
+    mapRef.current?.setZoom(13);
     setPopupLocationId(loc.id);
     setSearch('');
   }
 
   function handleSelectGeoResult(result: PlaceSearchResult) {
-    mapRef.current?.flyTo([result.lat, result.lng], 13);
+    mapRef.current?.panTo({ lat: result.lat, lng: result.lng });
+    mapRef.current?.setZoom(13);
     setSearch('');
     setGeoResults([]);
     setModalState({ lat: result.lat, lng: result.lng, defaultName: result.name });
@@ -103,30 +85,26 @@ export function MapView() {
   function handleAddAtCenter() {
     const center = mapRef.current?.getCenter();
     if (!center) return;
-    setModalState({ lat: center.lat, lng: center.lng });
+    setModalState({ lat: center.lat(), lng: center.lng() });
   }
 
+  // Marker에는 dblclick 이벤트가 따로 없어, 대기 중인 타이머가 있는 채로 다시 클릭되면 더블클릭으로 간주합니다.
   function handleMarkerClick(loc: Location) {
     const timers = clickTimersRef.current;
-    const existing = timers.get(loc.id);
-    if (existing) clearTimeout(existing);
+    const pending = timers.get(loc.id);
+    if (pending) {
+      clearTimeout(pending);
+      timers.delete(loc.id);
+      setModalState({ locationId: loc.id });
+      return;
+    }
     timers.set(
       loc.id,
       setTimeout(() => {
         setPopupLocationId(loc.id);
         timers.delete(loc.id);
-      }, 220)
+      }, DOUBLE_CLICK_THRESHOLD_MS)
     );
-  }
-
-  function handleMarkerDoubleClick(loc: Location) {
-    const timers = clickTimersRef.current;
-    const existing = timers.get(loc.id);
-    if (existing) {
-      clearTimeout(existing);
-      timers.delete(loc.id);
-    }
-    setModalState({ locationId: loc.id });
   }
 
   return (
@@ -199,30 +177,26 @@ export function MapView() {
         )}
       </div>
 
-      <MapContainer
-        center={[37.5665, 126.978]}
-        zoom={4}
-        doubleClickZoom={false}
-        className="absolute inset-0"
-      >
-        <TileLayer
-          attribution="Tiles &copy; Esri &mdash; Esri, DeLorme, NAVTEQ"
-          url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
-        />
-        <MapController onReady={(map) => (mapRef.current = map)} />
-        <CreateOnDoubleClick onCreate={(lat, lng) => setModalState({ lat, lng })} />
-        <CloseOnMapClick onClose={() => setPopupLocationId(null)} />
-        {locations.map((loc) => (
-          <Marker
-            key={loc.id}
-            position={[loc.lat, loc.lng]}
-            eventHandlers={{
-              click: () => handleMarkerClick(loc),
-              dblclick: () => handleMarkerDoubleClick(loc),
-            }}
-          />
-        ))}
-      </MapContainer>
+      <APIProvider apiKey={GOOGLE_MAPS_BROWSER_KEY} language="en">
+        <GoogleMap
+          defaultCenter={{ lat: 37.5665, lng: 126.978 }}
+          defaultZoom={4}
+          renderingType={RenderingType.RASTER}
+          disableDoubleClickZoom
+          disableDefaultUI
+          zoomControl
+          className="absolute inset-0"
+          onDblclick={(e) => {
+            if (e.detail.latLng) setModalState({ lat: e.detail.latLng.lat, lng: e.detail.latLng.lng });
+          }}
+          onClick={() => setPopupLocationId(null)}
+        >
+          <MapController onReady={(map) => (mapRef.current = map)} />
+          {locations.map((loc) => (
+            <Marker key={loc.id} position={{ lat: loc.lat, lng: loc.lng }} onClick={() => handleMarkerClick(loc)} />
+          ))}
+        </GoogleMap>
+      </APIProvider>
 
       {modalState && (
         <LocationModal
