@@ -2,12 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Compass, History, Map, Waypoints } from 'lucide-react';
+import { Compass, History, Library, Map, Waypoints } from 'lucide-react';
 
 const TABS = [
   { href: '/map', label: '지도', icon: Map },
   { href: '/timeline', label: '연표', icon: History },
   { href: '/mindmap', label: '마인드맵', icon: Waypoints },
+  { href: '/records', label: '기록', icon: Library },
 ];
 
 export function TopNav() {

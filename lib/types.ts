@@ -36,6 +36,11 @@ export interface LocationDetail extends Location {
   books: Book[];
 }
 
+export interface BookRecord extends Book {
+  authors: Author[];
+  location: Pick<Location, 'id' | 'name' | 'country' | 'city'> | null;
+}
+
 export interface HistoricalEvent {
   id: string;
   year: number;
