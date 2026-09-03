@@ -1,14 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import {
-  APIProvider,
-  Map as GoogleMap,
-  Marker,
-  RenderingType,
-  useMap,
-  type MapMouseEvent,
-} from '@vis.gl/react-google-maps';
+import { APIProvider, Map as GoogleMap, Marker, RenderingType, useMap } from '@vis.gl/react-google-maps';
 import { CheckCircle2, Loader2, MapPin, MapPinPlus, Search, XCircle } from 'lucide-react';
 import type { Location } from '@/lib/types';
 import type { PlaceSearchResult } from '@/lib/geocode';
@@ -18,11 +11,24 @@ import { LocationPopup } from './LocationPopup';
 const GOOGLE_MAPS_BROWSER_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY ?? '';
 const DOUBLE_CLICK_THRESHOLD_MS = 300;
 
-function MapController({ onReady }: { onReady: (map: google.maps.Map) => void }) {
+function MapController({
+  onReady,
+  onRawClick,
+}: {
+  onReady: (map: google.maps.Map) => void;
+  onRawClick: (e: MouseEvent) => void;
+}) {
   const map = useMap();
   useEffect(() => {
-    if (map) onReady(map);
-  }, [map, onReady]);
+    if (!map) return;
+    onReady(map);
+    // 구글 지도는 랜드마크 아이콘을 빠르게 두 번 클릭하면 두 번째 클릭의 click/dblclick 이벤트를
+    // 아예 발생시키지 않는 경우가 있어(기본 정보창을 막았는지 여부와 무관), React onClick/onDblclick만으로는
+    // 더블클릭을 감지할 수 없습니다. 대신 컨테이너에 원시 DOM click 리스너를 캡처 단계로 붙여서 직접 감지합니다.
+    const container = map.getDiv();
+    container.addEventListener('click', onRawClick, true);
+    return () => container.removeEventListener('click', onRawClick, true);
+  }, [map, onReady, onRawClick]);
   return null;
 }
 
@@ -53,6 +59,9 @@ export function MapView() {
   const clickTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const mapRef = useRef<google.maps.Map | null>(null);
   const geoRequestIdRef = useRef(0);
+  const mapClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastMapClickRef = useRef<{ lat: number; lng: number; placeId?: string } | null>(null);
+  const handleMapDblclickRef = useRef<(info: { lat: number; lng: number; placeId?: string }) => void>(() => {});
 
   const loadLocations = useCallback(async () => {
     const res = await fetch('/api/locations');
@@ -122,13 +131,35 @@ export function MapView() {
     setModalState({ lat: center.lat(), lng: center.lng() });
   }
 
+  const handleMapReady = useCallback((map: google.maps.Map) => {
+    mapRef.current = map;
+  }, []);
+
+  // 300ms 안에 원시 click이 다시 들어오면 더블클릭으로 간주해, 가장 최근 시맨틱 click이 알려준
+  // 좌표/placeId(lastMapClickRef)로 새 지역 추가 흐름을 시작합니다.
+  const handleRawMapClick = useCallback((e: MouseEvent) => {
+    // 저장된 마커·미리보기 마커·줌 버튼 등은 각자 자체적으로 클릭/더블클릭을 처리하므로 여기서는 무시합니다.
+    // 구글 지도 마커는 항상 role="button"으로 렌더링되어 이 방식으로 구분할 수 있습니다.
+    const target = e.target as HTMLElement | null;
+    if (target?.closest('[role="button"]')) return;
+
+    if (mapClickTimerRef.current) {
+      clearTimeout(mapClickTimerRef.current);
+      mapClickTimerRef.current = null;
+      const info = lastMapClickRef.current;
+      if (info) handleMapDblclickRef.current(info);
+      return;
+    }
+    mapClickTimerRef.current = setTimeout(() => {
+      mapClickTimerRef.current = null;
+    }, DOUBLE_CLICK_THRESHOLD_MS);
+  }, []);
+
   // 지도 위 랜드마크/건물 아이콘을 더블클릭하면 placeId가 함께 오는데, 이걸로 이름/소개글을 미리 채웁니다.
-  async function handleMapDblclick(e: MapMouseEvent) {
-    const latLng = e.detail.latLng;
-    if (!latLng) return;
-    const placeId = e.detail.placeId;
+  const handleMapDblclick = useCallback(async (info: { lat: number; lng: number; placeId?: string }) => {
+    const { lat, lng, placeId } = info;
     if (!placeId) {
-      setModalState({ lat: latLng.lat, lng: latLng.lng });
+      setModalState({ lat, lng });
       return;
     }
 
@@ -138,8 +169,8 @@ export function MapView() {
       if (res.ok) {
         const data = await res.json();
         setModalState({
-          lat: latLng.lat,
-          lng: latLng.lng,
+          lat,
+          lng,
           defaultName: data.name || undefined,
           defaultTouristInfo: data.description || undefined,
         });
@@ -150,8 +181,12 @@ export function MapView() {
     } finally {
       setPlaceLoading(false);
     }
-    setModalState({ lat: latLng.lat, lng: latLng.lng });
-  }
+    setModalState({ lat, lng });
+  }, []);
+
+  useEffect(() => {
+    handleMapDblclickRef.current = handleMapDblclick;
+  }, [handleMapDblclick]);
 
   // Marker에는 dblclick 이벤트가 따로 없어, 대기 중인 타이머가 있는 채로 다시 클릭되면 더블클릭으로 간주합니다.
   function handleMarkerClick(loc: Location) {
@@ -281,16 +316,18 @@ export function MapView() {
           disableDefaultUI
           zoomControl
           className="absolute inset-0"
-          onDblclick={handleMapDblclick}
           onClick={(e) => {
-            // 지도 위 랜드마크 아이콘을 클릭했을 때 구글 기본 정보창이 뜨면 더블클릭의 두 번째 클릭을
-            // 그 정보창이 가로채 버려서, 우리 쪽 더블클릭 처리가 씹히므로 기본 동작을 막습니다.
+            const latLng = e.detail.latLng;
+            if (latLng) {
+              lastMapClickRef.current = { lat: latLng.lat, lng: latLng.lng, placeId: e.detail.placeId ?? undefined };
+            }
+            // 랜드마크 아이콘 클릭 시 구글 기본 정보창이 뜨는 걸 막습니다(우리 모달을 대신 씁니다).
             if (e.detail.placeId) e.stop();
             setPopupLocationId(null);
             setPreviewMarker(null);
           }}
         >
-          <MapController onReady={(map) => (mapRef.current = map)} />
+          <MapController onReady={handleMapReady} onRawClick={handleRawMapClick} />
           {locations.map((loc) => (
             <Marker
               key={loc.id}
