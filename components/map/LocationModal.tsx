@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   BookOpen,
   Building2,
@@ -68,6 +68,8 @@ export function LocationModal({ lat, lng, locationId, defaultName, onClose, onSa
 
   const [events, setEvents] = useState<HistoricalEvent[]>([]);
   const [eventModalState, setEventModalState] = useState<{ event?: HistoricalEvent } | null>(null);
+
+  const backdropMouseDownRef = useRef(false);
 
   useEffect(() => {
     if (!locationId) return;
@@ -230,7 +232,14 @@ export function LocationModal({ lat, lng, locationId, defaultName, onClose, onSa
     )}
     <div
       className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
-      onClick={onClose}
+      onMouseDown={(e) => {
+        backdropMouseDownRef.current = e.target === e.currentTarget;
+      }}
+      onClick={(e) => {
+        // 모달 안에서 텍스트를 드래그로 선택하다 마우스가 배경까지 벗어나면 mousedown 없이도
+        // click이 배경에서 발생할 수 있어, 배경에서 눌러서 시작한 클릭일 때만 닫습니다.
+        if (backdropMouseDownRef.current && e.target === e.currentTarget) onClose();
+      }}
     >
       <div
         className="max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-white/[0.08] bg-surface shadow-2xl shadow-black/60"
