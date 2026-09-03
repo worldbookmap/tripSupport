@@ -1,7 +1,14 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { APIProvider, Map as GoogleMap, Marker, RenderingType, useMap } from '@vis.gl/react-google-maps';
+import {
+  APIProvider,
+  Map as GoogleMap,
+  Marker,
+  RenderingType,
+  useMap,
+  type MapMouseEvent,
+} from '@vis.gl/react-google-maps';
 import { CheckCircle2, Loader2, MapPin, MapPinPlus, Search, XCircle } from 'lucide-react';
 import type { Location } from '@/lib/types';
 import type { PlaceSearchResult } from '@/lib/geocode';
@@ -41,6 +48,7 @@ export function MapView() {
     description: string;
   } | null>(null);
   const [moveToast, setMoveToast] = useState<'success' | 'error' | null>(null);
+  const [placeLoading, setPlaceLoading] = useState(false);
 
   const clickTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -112,6 +120,37 @@ export function MapView() {
     const center = mapRef.current?.getCenter();
     if (!center) return;
     setModalState({ lat: center.lat(), lng: center.lng() });
+  }
+
+  // 지도 위 랜드마크/건물 아이콘을 더블클릭하면 placeId가 함께 오는데, 이걸로 이름/소개글을 미리 채웁니다.
+  async function handleMapDblclick(e: MapMouseEvent) {
+    const latLng = e.detail.latLng;
+    if (!latLng) return;
+    const placeId = e.detail.placeId;
+    if (!placeId) {
+      setModalState({ lat: latLng.lat, lng: latLng.lng });
+      return;
+    }
+
+    setPlaceLoading(true);
+    try {
+      const res = await fetch(`/api/geocode/place?placeId=${encodeURIComponent(placeId)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setModalState({
+          lat: latLng.lat,
+          lng: latLng.lng,
+          defaultName: data.name || undefined,
+          defaultTouristInfo: data.description || undefined,
+        });
+        return;
+      }
+    } catch {
+      // 장소 정보 조회에 실패해도 좌표만으로 새 지역 추가는 계속 진행합니다.
+    } finally {
+      setPlaceLoading(false);
+    }
+    setModalState({ lat: latLng.lat, lng: latLng.lng });
   }
 
   // Marker에는 dblclick 이벤트가 따로 없어, 대기 중인 타이머가 있는 채로 다시 클릭되면 더블클릭으로 간주합니다.
@@ -242,10 +281,11 @@ export function MapView() {
           disableDefaultUI
           zoomControl
           className="absolute inset-0"
-          onDblclick={(e) => {
-            if (e.detail.latLng) setModalState({ lat: e.detail.latLng.lat, lng: e.detail.latLng.lng });
-          }}
-          onClick={() => {
+          onDblclick={handleMapDblclick}
+          onClick={(e) => {
+            // 지도 위 랜드마크 아이콘을 클릭했을 때 구글 기본 정보창이 뜨면 더블클릭의 두 번째 클릭을
+            // 그 정보창이 가로채 버려서, 우리 쪽 더블클릭 처리가 씹히므로 기본 동작을 막습니다.
+            if (e.detail.placeId) e.stop();
             setPopupLocationId(null);
             setPreviewMarker(null);
           }}
@@ -271,6 +311,13 @@ export function MapView() {
           )}
         </GoogleMap>
       </APIProvider>
+
+      {placeLoading && (
+        <div className="pointer-events-none absolute left-1/2 top-3 z-[2100] flex -translate-x-1/2 items-center gap-2 rounded-xl border border-accent/30 bg-surface px-4 py-2.5 text-sm font-medium text-accent-strong shadow-2xl shadow-black/50 sm:top-4">
+          <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.25} />
+          장소 정보를 불러오는 중...
+        </div>
+      )}
 
       {moveToast && (
         <div

@@ -12,6 +12,13 @@ export interface PlaceSearchResult {
   lng: number;
 }
 
+export interface PlaceInfo {
+  name: string;
+  description: string;
+  lat: number;
+  lng: number;
+}
+
 interface GoogleAddressComponent {
   long_name: string;
   short_name: string;
@@ -97,6 +104,10 @@ interface GooglePlacesTextSearchResponse {
   error?: { message: string };
 }
 
+interface GooglePlaceDetailsResponse extends GooglePlace {
+  error?: { message: string };
+}
+
 // Google Places API(Text Search): 지명뿐 아니라 상호명/랜드마크 등 구글 지도 검색창과 비슷한 범위로 찾습니다.
 export async function searchPlaces(query: string): Promise<PlaceSearchResult[]> {
   const res = await fetch('https://places.googleapis.com/v1/places:searchText', {
@@ -124,4 +135,29 @@ export async function searchPlaces(query: string): Promise<PlaceSearchResult[]> 
     lat: place.location.latitude,
     lng: place.location.longitude,
   }));
+}
+
+// Google Places API(Place Details): 지도의 랜드마크/건물 아이콘을 클릭했을 때 얻는 placeId로 이름/소개글을 가져옵니다.
+export async function getPlaceDetails(placeId: string): Promise<PlaceInfo> {
+  const res = await fetch(
+    `https://places.googleapis.com/v1/places/${encodeURIComponent(placeId)}?languageCode=en`,
+    {
+      headers: {
+        'X-Goog-Api-Key': getApiKey(),
+        'X-Goog-FieldMask': 'displayName,formattedAddress,editorialSummary,location',
+      },
+    }
+  );
+
+  const data: GooglePlaceDetailsResponse = await res.json();
+  if (!res.ok) {
+    throw new Error(`장소 정보 조회에 실패했습니다: ${data.error?.message ?? res.status}`);
+  }
+
+  return {
+    name: data.displayName?.text ?? '',
+    description: data.editorialSummary?.text ?? '',
+    lat: data.location.latitude,
+    lng: data.location.longitude,
+  };
 }
