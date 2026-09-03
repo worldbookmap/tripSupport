@@ -44,22 +44,29 @@ export function LocationPopup({ locationId, onClose, onEdit, onDeleted }: Locati
 
   return (
     <div className="absolute inset-x-3 top-16 z-[1000] max-h-[65vh] overflow-y-auto rounded-2xl border border-white/[0.08] bg-surface/95 shadow-2xl shadow-black/50 backdrop-blur-md sm:inset-x-auto sm:right-4 sm:top-4 sm:max-h-[80vh] sm:w-80">
-      <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] px-4 py-3">
-        <div className="flex min-w-0 items-center gap-2">
-          <h3 className="truncate text-[15px] font-semibold text-zinc-50">{detail?.name ?? '불러오는 중...'}</h3>
-          {detail &&
-            (() => {
-              const region = detail.region ?? '기타';
-              const colors = REGION_COLORS[region];
-              return (
-                <span
-                  className="shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium"
-                  style={{ borderColor: colors.border, background: colors.bg, color: colors.text }}
-                >
-                  {region}
-                </span>
-              );
-            })()}
+      <div className="flex items-start justify-between gap-2 border-b border-white/[0.06] px-4 py-3">
+        <div className="min-w-0">
+          <div className="flex min-w-0 items-center gap-2">
+            <h3 className="truncate text-[15px] font-semibold text-zinc-50">{detail?.name ?? '불러오는 중...'}</h3>
+            {detail &&
+              (() => {
+                const region = detail.region ?? '기타';
+                const colors = REGION_COLORS[region];
+                return (
+                  <span
+                    className="shrink-0 rounded-full border px-2 py-0.5 text-[11px] font-medium"
+                    style={{ borderColor: colors.border, background: colors.bg, color: colors.text }}
+                  >
+                    {region}
+                  </span>
+                );
+              })()}
+          </div>
+          {detail && (detail.country || detail.city || detail.district) && (
+            <p className="mt-0.5 truncate text-[12px] text-zinc-500">
+              {[detail.country, detail.city, detail.district].filter(Boolean).join(' · ')}
+            </p>
+          )}
         </div>
         <button
           onClick={onClose}
