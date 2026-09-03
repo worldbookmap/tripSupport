@@ -266,8 +266,10 @@ export function Timeline() {
           <ScrollText className="h-8 w-8 text-zinc-700" strokeWidth={1.5} />
           <p className="text-sm text-zinc-500">등록된 사건이 없습니다.</p>
         </div>
-      ) : view === 'vertical' ? (
-        <div className="mx-auto max-w-3xl space-y-8">
+      ) : (
+        <>
+        {view === 'vertical' && (
+        <div className="mx-auto max-w-3xl space-y-8 print:hidden">
           {verticalGroups.map(({ continent, colors, events: continentEvents }) => (
             <section key={continent}>
               <div className="mb-3 flex items-center gap-2">
@@ -344,8 +346,9 @@ export function Timeline() {
             </section>
           ))}
         </div>
-      ) : view === 'horizontal' ? (
-        <div className="overflow-x-auto rounded-2xl border border-white/[0.08] bg-black/10">
+        )}
+        {view === 'horizontal' && (
+        <div className="overflow-x-auto rounded-2xl border border-white/[0.08] bg-black/10 print:hidden">
           <div style={{ minWidth: LABEL_W + timelineWidth }}>
             {/* 연도 축 */}
             <div className="sticky top-0 z-20 flex bg-surface">
@@ -443,8 +446,8 @@ export function Timeline() {
             ))}
           </div>
         </div>
-      ) : (
-        <div className="mx-auto max-w-5xl">
+        )}
+        <div className={`mx-auto max-w-5xl ${view === 'table' ? '' : 'hidden print:block'}`}>
           <div className="mb-3 flex items-center justify-between gap-2 print:hidden">
             <p className="text-[12.5px] text-zinc-500">
               대륙(1행)과 나라(2행)를 열로, 연도를 행으로 정리한 표입니다. 인쇄하면 이 화면 그대로 PDF로 저장할 수 있어요.
@@ -516,6 +519,7 @@ export function Timeline() {
             </table>
           </div>
         </div>
+        </>
       )}
 
       {view === 'horizontal' && (

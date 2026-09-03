@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { normalizeBookAuthors } from '@/lib/books';
 
 export async function GET() {
   const { data, error } = await supabase
@@ -10,11 +11,10 @@ export async function GET() {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const normalized = (data ?? []).map((book) => {
-    const { book_authors, locations: location, ...rest } = book as typeof book & {
-      book_authors: { author: unknown }[];
+    const { locations: location, ...rest } = book as typeof book & {
       locations: { id: string; name: string; country: string; city: string } | null;
     };
-    return { ...rest, authors: book_authors.map((ba: { author: unknown }) => ba.author), location };
+    return { ...normalizeBookAuthors(rest), location };
   });
 
   return NextResponse.json(normalized);

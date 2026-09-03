@@ -32,6 +32,7 @@ export function MapView() {
 
   const clickTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const mapRef = useRef<google.maps.Map | null>(null);
+  const geoRequestIdRef = useRef(0);
 
   const loadLocations = useCallback(async () => {
     const res = await fetch('/api/locations');
@@ -58,11 +59,13 @@ export function MapView() {
     }
     setGeoSearching(true);
     const timer = setTimeout(async () => {
+      const requestId = ++geoRequestIdRef.current;
       try {
         const res = await fetch(`/api/geocode/search?q=${encodeURIComponent(term)}`);
-        if (res.ok) setGeoResults(await res.json());
+        const data = res.ok ? await res.json() : [];
+        if (requestId === geoRequestIdRef.current) setGeoResults(data);
       } finally {
-        setGeoSearching(false);
+        if (requestId === geoRequestIdRef.current) setGeoSearching(false);
       }
     }, 450);
     return () => clearTimeout(timer);
@@ -195,7 +198,10 @@ export function MapView() {
           onDblclick={(e) => {
             if (e.detail.latLng) setModalState({ lat: e.detail.latLng.lat, lng: e.detail.latLng.lng });
           }}
-          onClick={() => setPopupLocationId(null)}
+          onClick={() => {
+            setPopupLocationId(null);
+            setPreviewMarker(null);
+          }}
         >
           <MapController onReady={(map) => (mapRef.current = map)} />
           {locations.map((loc) => (

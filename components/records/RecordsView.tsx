@@ -103,10 +103,13 @@ export function RecordsView() {
 
   useEffect(() => {
     (async () => {
-      const [locRes, bookRes] = await Promise.all([fetch('/api/locations'), fetch('/api/books')]);
-      if (locRes.ok) setLocations(await locRes.json());
-      if (bookRes.ok) setBooks(await bookRes.json());
-      setLoading(false);
+      try {
+        const [locRes, bookRes] = await Promise.all([fetch('/api/locations'), fetch('/api/books')]);
+        if (locRes.ok) setLocations(await locRes.json());
+        if (bookRes.ok) setBooks(await bookRes.json());
+      } finally {
+        setLoading(false);
+      }
     })();
   }, []);
 
