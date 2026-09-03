@@ -10,6 +10,7 @@ export interface Location {
   region: Region;
   country: string;
   city: string;
+  district: string;
   created_at: string;
   updated_at: string;
 }

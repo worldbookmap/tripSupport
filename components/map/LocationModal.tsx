@@ -53,6 +53,7 @@ export function LocationModal({ lat, lng, locationId, defaultName, onClose, onSa
   const [region, setRegion] = useState<Region>(() => (lat != null && lng != null ? guessRegion(lat, lng) : '기타'));
   const [country, setCountry] = useState('');
   const [city, setCity] = useState('');
+  const [district, setDistrict] = useState('');
   const [savedLat, setSavedLat] = useState<number | undefined>(lat);
   const [savedLng, setSavedLng] = useState<number | undefined>(lng);
   const [geoLoading, setGeoLoading] = useState(false);
@@ -83,6 +84,7 @@ export function LocationModal({ lat, lng, locationId, defaultName, onClose, onSa
         setRegion(data.region ?? '기타');
         setCountry(data.country ?? '');
         setCity(data.city ?? '');
+        setDistrict(data.district ?? '');
         setSavedLat(data.lat);
         setSavedLng(data.lng);
         setBooks(data.books ?? []);
@@ -101,6 +103,7 @@ export function LocationModal({ lat, lng, locationId, defaultName, onClose, onSa
         const data = await res.json();
         if (data.country) setCountry(data.country);
         if (data.city) setCity(data.city);
+        setDistrict(data.district ?? '');
       }
     } finally {
       setGeoLoading(false);
@@ -147,14 +150,14 @@ export function LocationModal({ lat, lng, locationId, defaultName, onClose, onSa
         const res = await fetch(`/api/locations/${id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, history, tourist_info: touristInfo, region, country, city }),
+          body: JSON.stringify({ name, history, tourist_info: touristInfo, region, country, city, district }),
         });
         if (!res.ok) throw new Error('저장에 실패했습니다.');
       } else {
         const res = await fetch('/api/locations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, lat, lng, history, tourist_info: touristInfo, region, country, city }),
+          body: JSON.stringify({ name, lat, lng, history, tourist_info: touristInfo, region, country, city, district }),
         });
         if (!res.ok) throw new Error('저장에 실패했습니다.');
         const created = await res.json();
@@ -306,7 +309,7 @@ export function LocationModal({ lat, lng, locationId, defaultName, onClose, onSa
                     placeholder="예: 프랑스"
                   />
                 </div>
-                <div className="flex-1">
+                <div className="flex-[1.4]">
                   <label className={labelClass}>
                     <Building2 className="h-3.5 w-3.5 text-zinc-400" strokeWidth={2.25} />
                     도시
@@ -316,6 +319,18 @@ export function LocationModal({ lat, lng, locationId, defaultName, onClose, onSa
                     onChange={(e) => setCity(e.target.value)}
                     className={inputClass}
                     placeholder="예: 파리"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className={labelClass}>
+                    <MapPinned className="h-3.5 w-3.5 text-zinc-500" strokeWidth={2.25} />
+                    구/지구
+                  </label>
+                  <input
+                    value={district}
+                    onChange={(e) => setDistrict(e.target.value)}
+                    className={inputClass}
+                    placeholder="예: 파티흐 (선택)"
                   />
                 </div>
                 <button

@@ -12,6 +12,7 @@ create table if not exists locations (
   region text not null default '기타', -- 대륙: 유럽/중동/아시아/북미/남미/기타
   country text not null default '', -- 나라
   city text not null default '', -- 도시
+  district text not null default '', -- 구/지구 (도시 하위 명칭)
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -19,6 +20,7 @@ create table if not exists locations (
 -- 기존에 만든 테이블에도 반영되도록 (이미 있으면 무시됨)
 alter table locations add column if not exists country text not null default '';
 alter table locations add column if not exists city text not null default '';
+alter table locations add column if not exists district text not null default '';
 
 create table if not exists authors (
   id uuid primary key default gen_random_uuid(),

@@ -1,6 +1,7 @@
 export interface ReverseGeocodeResult {
   country: string;
   city: string;
+  district: string;
 }
 
 export interface PlaceSearchResult {
@@ -55,20 +56,31 @@ export async function reverseGeocode(lat: number, lng: number): Promise<ReverseG
 
   const data: GoogleGeocodeResponse = await res.json();
   if (data.status === 'ZERO_RESULTS') {
-    return { country: '', city: '' };
+    return { country: '', city: '', district: '' };
   }
   if (data.status !== 'OK') {
     throw new Error(`역지오코딩 실패: ${data.status}${data.error_message ? ` - ${data.error_message}` : ''}`);
   }
 
   const components = data.results[0].address_components;
+  const adminLevel2 = findComponent(components, 'administrative_area_level_2');
+
+  // 이스탄불(구: Fatih)처럼 도시 자체가 광역 행정구역(도)이라 locality가 비어 있는 경우가 있어,
+  // 그런 경우 구/군 단위인 administrative_area_level_2보다 상위인 도/특별시(level_1)를 도시로 우선합니다.
+  const city =
+    findComponent(components, 'locality') ??
+    findComponent(components, 'administrative_area_level_1') ??
+    adminLevel2 ??
+    '';
+
+  const sublocality =
+    findComponent(components, 'sublocality_level_1') ?? findComponent(components, 'sublocality');
+  const district = sublocality ?? (adminLevel2 && adminLevel2 !== city ? adminLevel2 : '') ?? '';
+
   return {
     country: findComponent(components, 'country') ?? '',
-    city:
-      findComponent(components, 'locality') ??
-      findComponent(components, 'administrative_area_level_2') ??
-      findComponent(components, 'administrative_area_level_1') ??
-      '',
+    city,
+    district,
   };
 }
 
