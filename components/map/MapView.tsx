@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { APIProvider, Map as GoogleMap, Marker, RenderingType, useMap } from '@vis.gl/react-google-maps';
-import { Loader2, MapPin, MapPinPlus, Search } from 'lucide-react';
+import { CheckCircle2, Loader2, MapPin, MapPinPlus, Search, XCircle } from 'lucide-react';
 import type { Location } from '@/lib/types';
 import type { PlaceSearchResult } from '@/lib/geocode';
 import { LocationModal } from './LocationModal';
@@ -29,6 +29,7 @@ export function MapView() {
   const [geoResults, setGeoResults] = useState<PlaceSearchResult[]>([]);
   const [geoSearching, setGeoSearching] = useState(false);
   const [previewMarker, setPreviewMarker] = useState<{ lat: number; lng: number; name: string } | null>(null);
+  const [moveToast, setMoveToast] = useState<'success' | 'error' | null>(null);
 
   const clickTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -114,6 +115,36 @@ export function MapView() {
         timers.delete(loc.id);
       }, DOUBLE_CLICK_THRESHOLD_MS)
     );
+  }
+
+  function handleMarkerDragStart(loc: Location) {
+    if (popupLocationId === loc.id) setPopupLocationId(null);
+  }
+
+  async function handleMarkerDragEnd(loc: Location, e: google.maps.MapMouseEvent) {
+    const latLng = e.latLng;
+    if (!latLng) return;
+    const lat = latLng.lat();
+    const lng = latLng.lng();
+    const prevLat = loc.lat;
+    const prevLng = loc.lng;
+
+    setLocations((current) => current.map((l) => (l.id === loc.id ? { ...l, lat, lng } : l)));
+
+    try {
+      const res = await fetch(`/api/locations/${loc.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ lat, lng }),
+      });
+      if (!res.ok) throw new Error('save failed');
+      setMoveToast('success');
+    } catch {
+      setLocations((current) => current.map((l) => (l.id === loc.id ? { ...l, lat: prevLat, lng: prevLng } : l)));
+      setMoveToast('error');
+    } finally {
+      setTimeout(() => setMoveToast(null), 1800);
+    }
   }
 
   return (
@@ -205,7 +236,15 @@ export function MapView() {
         >
           <MapController onReady={(map) => (mapRef.current = map)} />
           {locations.map((loc) => (
-            <Marker key={loc.id} position={{ lat: loc.lat, lng: loc.lng }} onClick={() => handleMarkerClick(loc)} />
+            <Marker
+              key={loc.id}
+              position={{ lat: loc.lat, lng: loc.lng }}
+              draggable
+              title={loc.name}
+              onClick={() => handleMarkerClick(loc)}
+              onDragStart={() => handleMarkerDragStart(loc)}
+              onDragEnd={(e) => handleMarkerDragEnd(loc, e)}
+            />
           ))}
           {previewMarker && (
             <Marker
@@ -216,6 +255,28 @@ export function MapView() {
           )}
         </GoogleMap>
       </APIProvider>
+
+      {moveToast && (
+        <div
+          className={`pointer-events-none absolute left-1/2 top-3 z-[2100] flex -translate-x-1/2 items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium shadow-2xl shadow-black/50 sm:top-4 ${
+            moveToast === 'success'
+              ? 'border-emerald-500/30 bg-surface text-emerald-300'
+              : 'border-red-500/30 bg-surface text-red-300'
+          }`}
+        >
+          {moveToast === 'success' ? (
+            <>
+              <CheckCircle2 className="h-4 w-4" strokeWidth={2.25} />
+              위치가 이동되었습니다
+            </>
+          ) : (
+            <>
+              <XCircle className="h-4 w-4" strokeWidth={2.25} />
+              위치 이동을 저장하지 못했습니다
+            </>
+          )}
+        </div>
+      )}
 
       {modalState && (
         <LocationModal
