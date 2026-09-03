@@ -321,8 +321,6 @@ export function MapView() {
             if (latLng) {
               lastMapClickRef.current = { lat: latLng.lat, lng: latLng.lng, placeId: e.detail.placeId ?? undefined };
             }
-            // 랜드마크 아이콘 클릭 시 구글 기본 정보창이 뜨는 걸 막습니다(우리 모달을 대신 씁니다).
-            if (e.detail.placeId) e.stop();
             setPopupLocationId(null);
             setPreviewMarker(null);
           }}
