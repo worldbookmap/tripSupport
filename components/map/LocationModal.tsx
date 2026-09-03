@@ -40,16 +40,26 @@ interface LocationModalProps {
   lng?: number;
   locationId?: string;
   defaultName?: string;
+  defaultTouristInfo?: string;
   onClose: () => void;
   onSaved: () => void;
   onDeleted: () => void;
 }
 
-export function LocationModal({ lat, lng, locationId, defaultName, onClose, onSaved, onDeleted }: LocationModalProps) {
+export function LocationModal({
+  lat,
+  lng,
+  locationId,
+  defaultName,
+  defaultTouristInfo,
+  onClose,
+  onSaved,
+  onDeleted,
+}: LocationModalProps) {
   const [id, setId] = useState<string | undefined>(locationId);
   const [name, setName] = useState(defaultName ?? '');
   const [history, setHistory] = useState('');
-  const [touristInfo, setTouristInfo] = useState('');
+  const [touristInfo, setTouristInfo] = useState(defaultTouristInfo ?? '');
   const [region, setRegion] = useState<Region>(() => (lat != null && lng != null ? guessRegion(lat, lng) : '기타'));
   const [country, setCountry] = useState('');
   const [city, setCity] = useState('');

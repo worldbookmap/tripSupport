@@ -7,6 +7,7 @@ export interface ReverseGeocodeResult {
 export interface PlaceSearchResult {
   name: string;
   displayName: string;
+  description: string;
   lat: number;
   lng: number;
 }
@@ -87,6 +88,7 @@ export async function reverseGeocode(lat: number, lng: number): Promise<ReverseG
 interface GooglePlace {
   displayName?: { text: string; languageCode: string };
   formattedAddress?: string;
+  editorialSummary?: { text: string; languageCode: string };
   location: { latitude: number; longitude: number };
 }
 
@@ -102,7 +104,7 @@ export async function searchPlaces(query: string): Promise<PlaceSearchResult[]> 
     headers: {
       'Content-Type': 'application/json',
       'X-Goog-Api-Key': getApiKey(),
-      'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.location',
+      'X-Goog-FieldMask': 'places.displayName,places.formattedAddress,places.editorialSummary,places.location',
     },
     body: JSON.stringify({ textQuery: query, languageCode: 'en' }),
   });
@@ -118,6 +120,7 @@ export async function searchPlaces(query: string): Promise<PlaceSearchResult[]> 
   return data.places.slice(0, 6).map((place) => ({
     name: place.displayName?.text ?? query,
     displayName: place.formattedAddress ?? '',
+    description: place.editorialSummary?.text ?? '',
     lat: place.location.latitude,
     lng: place.location.longitude,
   }));

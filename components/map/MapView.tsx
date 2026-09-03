@@ -19,7 +19,13 @@ function MapController({ onReady }: { onReady: (map: google.maps.Map) => void })
   return null;
 }
 
-type ModalState = { lat?: number; lng?: number; locationId?: string; defaultName?: string };
+type ModalState = {
+  lat?: number;
+  lng?: number;
+  locationId?: string;
+  defaultName?: string;
+  defaultTouristInfo?: string;
+};
 
 export function MapView() {
   const [locations, setLocations] = useState<Location[]>([]);
@@ -28,7 +34,12 @@ export function MapView() {
   const [search, setSearch] = useState('');
   const [geoResults, setGeoResults] = useState<PlaceSearchResult[]>([]);
   const [geoSearching, setGeoSearching] = useState(false);
-  const [previewMarker, setPreviewMarker] = useState<{ lat: number; lng: number; name: string } | null>(null);
+  const [previewMarker, setPreviewMarker] = useState<{
+    lat: number;
+    lng: number;
+    name: string;
+    description: string;
+  } | null>(null);
   const [moveToast, setMoveToast] = useState<'success' | 'error' | null>(null);
 
   const clickTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -84,12 +95,17 @@ export function MapView() {
     mapRef.current?.setZoom(13);
     setSearch('');
     setGeoResults([]);
-    setPreviewMarker({ lat: result.lat, lng: result.lng, name: result.name });
+    setPreviewMarker({ lat: result.lat, lng: result.lng, name: result.name, description: result.description });
   }
 
   function handlePreviewMarkerClick() {
     if (!previewMarker) return;
-    setModalState({ lat: previewMarker.lat, lng: previewMarker.lng, defaultName: previewMarker.name });
+    setModalState({
+      lat: previewMarker.lat,
+      lng: previewMarker.lng,
+      defaultName: previewMarker.name,
+      defaultTouristInfo: previewMarker.description,
+    });
   }
 
   function handleAddAtCenter() {
@@ -284,6 +300,7 @@ export function MapView() {
           lng={modalState.lng}
           locationId={modalState.locationId}
           defaultName={modalState.defaultName}
+          defaultTouristInfo={modalState.defaultTouristInfo}
           onClose={() => {
             setModalState(null);
             setPreviewMarker(null);
