@@ -15,9 +15,11 @@ interface LocationPopupProps {
   onClose: () => void;
   onEdit: (id: string) => void;
   onDeleted: () => void;
+  // 'floating': 지도 위에 떠 있는 코너 패널(기본값). 'modal': 배경을 덮는 중앙 다이얼로그(기록 페이지 등 지도가 없는 곳에서 사용).
+  presentation?: 'floating' | 'modal';
 }
 
-export function LocationPopup({ locationId, onClose, onEdit, onDeleted }: LocationPopupProps) {
+export function LocationPopup({ locationId, onClose, onEdit, onDeleted, presentation = 'floating' }: LocationPopupProps) {
   const router = useRouter();
   const [detail, setDetail] = useState<LocationDetail | null>(null);
   const [events, setEvents] = useState<HistoricalEvent[]>([]);
@@ -42,8 +44,14 @@ export function LocationPopup({ locationId, onClose, onEdit, onDeleted }: Locati
     if (res.ok) onDeleted();
   }
 
-  return (
-    <div className="absolute inset-x-3 top-16 z-[1000] max-h-[65vh] overflow-y-auto rounded-2xl border border-white/[0.08] bg-surface/95 shadow-2xl shadow-black/50 backdrop-blur-md sm:inset-x-auto sm:right-4 sm:top-4 sm:max-h-[80vh] sm:w-80">
+  const panel = (
+    <div
+      className={
+        presentation === 'modal'
+          ? 'max-h-[85vh] w-full max-w-md overflow-y-auto rounded-2xl border border-white/[0.08] bg-surface shadow-2xl shadow-black/60'
+          : 'absolute inset-x-3 top-16 z-[1000] max-h-[65vh] overflow-y-auto rounded-2xl border border-white/[0.08] bg-surface/95 shadow-2xl shadow-black/50 backdrop-blur-md sm:inset-x-auto sm:right-4 sm:top-4 sm:max-h-[80vh] sm:w-80'
+      }
+    >
       <div className="flex items-start justify-between gap-2 border-b border-white/[0.06] px-4 py-3">
         <div className="min-w-0">
           <div className="flex min-w-0 items-center gap-2">
@@ -185,4 +193,19 @@ export function LocationPopup({ locationId, onClose, onEdit, onDeleted }: Locati
       )}
     </div>
   );
+
+  if (presentation === 'modal') {
+    return (
+      <div
+        className="fixed inset-0 z-[2000] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
+        {panel}
+      </div>
+    );
+  }
+
+  return panel;
 }

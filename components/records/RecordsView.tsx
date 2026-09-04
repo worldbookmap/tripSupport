@@ -1,11 +1,13 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { BookOpen, Building2, Globe2, LayoutGrid, Loader2, MapPin, Search, UtensilsCrossed } from 'lucide-react';
 import type { BookRecord, Location } from '@/lib/types';
 import { REGION_COLORS } from '@/lib/regions';
 import { CATEGORY_COLORS, CATEGORY_LABELS, type Category } from '@/lib/category';
+import { LocationPopup } from '@/components/map/LocationPopup';
+import { LocationModal } from '@/components/map/LocationModal';
 
 type Tab = 'country' | 'places' | 'books';
 type PlaceFilter = 'all' | Category;
@@ -45,15 +47,16 @@ function matchesBook(book: BookRecord, term: string) {
   );
 }
 
-function LocationCard({ loc }: { loc: Location }) {
+function LocationCard({ loc, onSelect }: { loc: Location; onSelect: (id: string) => void }) {
   const colors = REGION_COLORS[loc.region] ?? REGION_COLORS['기타'];
   const category = loc.category ?? 'general';
   const categoryColors = CATEGORY_COLORS[category];
   const CategoryIcon = category === 'food' ? UtensilsCrossed : MapPin;
   return (
-    <Link
-      href={`/timeline?locationId=${loc.id}`}
-      className="block rounded-xl border border-white/[0.06] bg-white/[0.03] p-3 transition-colors hover:border-accent/40 hover:bg-white/[0.05]"
+    <button
+      type="button"
+      onClick={() => onSelect(loc.id)}
+      className="block w-full rounded-xl border border-white/[0.06] bg-white/[0.03] p-3 text-left transition-colors hover:border-accent/40 hover:bg-white/[0.05]"
     >
       <div className="mb-1 flex items-center gap-2">
         <CategoryIcon className="h-3.5 w-3.5 shrink-0" style={{ color: categoryColors.dot }} strokeWidth={2.25} />
@@ -78,7 +81,7 @@ function LocationCard({ loc }: { loc: Location }) {
       )}
       {loc.address && <p className="mb-1 truncate text-[11px] text-zinc-600">{loc.address}</p>}
       {loc.history && <p className="line-clamp-2 text-xs leading-relaxed text-zinc-400">{loc.history}</p>}
-    </Link>
+    </button>
   );
 }
 
@@ -123,6 +126,13 @@ export function RecordsView() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [books, setBooks] = useState<BookRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null);
+  const [editLocationId, setEditLocationId] = useState<string | null>(null);
+
+  const loadLocations = useCallback(async () => {
+    const res = await fetch('/api/locations');
+    if (res.ok) setLocations(await res.json());
+  }, []);
 
   useEffect(() => {
     (async () => {
@@ -225,7 +235,7 @@ export function RecordsView() {
                     </h3>
                     <div className="grid gap-2 sm:grid-cols-2">
                       {locs.map((loc) => (
-                        <LocationCard key={loc.id} loc={loc} />
+                        <LocationCard key={loc.id} loc={loc} onSelect={setSelectedLocationId} />
                       ))}
                     </div>
                   </div>
@@ -267,7 +277,7 @@ export function RecordsView() {
           )}
           <div className="grid gap-2 sm:grid-cols-2">
             {filteredPlaces.map((loc) => (
-              <LocationCard key={loc.id} loc={loc} />
+              <LocationCard key={loc.id} loc={loc} onSelect={setSelectedLocationId} />
             ))}
           </div>
         </>
@@ -282,6 +292,35 @@ export function RecordsView() {
             ))}
           </div>
         </>
+      )}
+
+      {selectedLocationId && (
+        <LocationPopup
+          presentation="modal"
+          locationId={selectedLocationId}
+          onClose={() => setSelectedLocationId(null)}
+          onEdit={(id) => {
+            setSelectedLocationId(null);
+            setEditLocationId(id);
+          }}
+          onDeleted={() => {
+            setSelectedLocationId(null);
+            loadLocations();
+          }}
+        />
+      )}
+
+      {editLocationId && (
+        <LocationModal
+          locationId={editLocationId}
+          onClose={() => setEditLocationId(null)}
+          onSaved={loadLocations}
+          onDeleted={() => {
+            setEditLocationId(null);
+            setSelectedLocationId(null);
+            loadLocations();
+          }}
+        />
       )}
     </div>
   );
