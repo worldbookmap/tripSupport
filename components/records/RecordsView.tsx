@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { BookOpen, Building2, Globe2, LayoutGrid, Loader2, MapPin, Search, UtensilsCrossed } from 'lucide-react';
+import { BookOpen, Building2, Coffee, Globe2, LayoutGrid, Loader2, MapPin, Search, UtensilsCrossed } from 'lucide-react';
 import type { BookRecord, Location } from '@/lib/types';
 import { REGION_COLORS } from '@/lib/regions';
-import { CATEGORY_COLORS, CATEGORY_LABELS, type Category } from '@/lib/category';
+import { CATEGORIES, CATEGORY_COLORS, CATEGORY_HAS_HISTORY, CATEGORY_LABELS, type Category } from '@/lib/category';
 import { LocationPopup } from '@/components/map/LocationPopup';
 import { LocationModal } from '@/components/map/LocationModal';
 
@@ -18,10 +18,13 @@ const TABS: { id: Tab; label: string; icon: typeof Globe2 }[] = [
   { id: 'books', label: '도서', icon: BookOpen },
 ];
 
+function categoryIcon(category: Category) {
+  return category === 'food' ? UtensilsCrossed : category === 'cafe' ? Coffee : MapPin;
+}
+
 const PLACE_FILTERS: { id: PlaceFilter; label: string; icon: typeof LayoutGrid }[] = [
   { id: 'all', label: '전체', icon: LayoutGrid },
-  { id: 'general', label: CATEGORY_LABELS.general, icon: MapPin },
-  { id: 'food', label: CATEGORY_LABELS.food, icon: UtensilsCrossed },
+  ...CATEGORIES.map((c) => ({ id: c as PlaceFilter, label: CATEGORY_LABELS[c], icon: categoryIcon(c) })),
 ];
 
 const UNSPECIFIED = '미분류';
@@ -51,7 +54,7 @@ function LocationCard({ loc, onSelect }: { loc: Location; onSelect: (id: string)
   const colors = REGION_COLORS[loc.region] ?? REGION_COLORS['기타'];
   const category = loc.category ?? 'general';
   const categoryColors = CATEGORY_COLORS[category];
-  const CategoryIcon = category === 'food' ? UtensilsCrossed : MapPin;
+  const CategoryIcon = category === 'food' ? UtensilsCrossed : category === 'cafe' ? Coffee : MapPin;
   return (
     <button
       type="button"
@@ -80,7 +83,9 @@ function LocationCard({ loc, onSelect }: { loc: Location; onSelect: (id: string)
         </p>
       )}
       {loc.address && <p className="mb-1 truncate text-[11px] text-zinc-600">{loc.address}</p>}
-      {loc.history && <p className="line-clamp-2 text-xs leading-relaxed text-zinc-400">{loc.history}</p>}
+      {CATEGORY_HAS_HISTORY[category] && loc.history && (
+        <p className="line-clamp-2 text-xs leading-relaxed text-zinc-400">{loc.history}</p>
+      )}
     </button>
   );
 }

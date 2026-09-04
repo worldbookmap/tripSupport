@@ -6,6 +6,7 @@ import {
   Building2,
   CalendarClock,
   CheckCircle2,
+  Coffee,
   Flag,
   Globe2,
   Landmark,
@@ -27,7 +28,7 @@ import {
 import type { Book, HistoricalEvent } from '@/lib/types';
 import type { BookSearchResult } from '@/lib/kakaoBooks';
 import { guessRegion, REGION_COLORS, REGIONS, type Region } from '@/lib/regions';
-import { CATEGORIES, CATEGORY_COLORS, CATEGORY_LABELS, type Category } from '@/lib/category';
+import { CATEGORIES, CATEGORY_COLORS, CATEGORY_HAS_HISTORY, CATEGORY_LABELS, type Category } from '@/lib/category';
 import { EventModal } from '@/components/timeline/EventModal';
 
 function formatYear(year: number) {
@@ -344,7 +345,7 @@ export function LocationModal({
                   {CATEGORIES.map((c) => {
                     const active = category === c;
                     const colors = CATEGORY_COLORS[c];
-                    const Icon = c === 'food' ? UtensilsCrossed : MapPinned;
+                    const Icon = c === 'food' ? UtensilsCrossed : c === 'cafe' ? Coffee : MapPinned;
                     return (
                       <button
                         key={c}
@@ -431,18 +432,20 @@ export function LocationModal({
                 />
               </div>
 
-              <div>
-                <label className={labelClass}>
-                  <Landmark className="h-3.5 w-3.5 text-gold" strokeWidth={2.25} />
-                  역사
-                </label>
-                <textarea
-                  value={history}
-                  onChange={(e) => setHistory(e.target.value)}
-                  rows={4}
-                  className={`${inputClass} resize-none`}
-                />
-              </div>
+              {CATEGORY_HAS_HISTORY[category] && (
+                <div>
+                  <label className={labelClass}>
+                    <Landmark className="h-3.5 w-3.5 text-gold" strokeWidth={2.25} />
+                    역사
+                  </label>
+                  <textarea
+                    value={history}
+                    onChange={(e) => setHistory(e.target.value)}
+                    rows={4}
+                    className={`${inputClass} resize-none`}
+                  />
+                </div>
+              )}
               <div>
                 <label className={labelClass}>
                   <Sparkles className="h-3.5 w-3.5 text-accent-strong" strokeWidth={2.25} />

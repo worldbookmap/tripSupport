@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { BookOpen, CalendarClock, History, Landmark, MapPin, Pencil, ScrollText, Trash2, X } from 'lucide-react';
+import { BookOpen, CalendarClock, ExternalLink, History, Landmark, MapPin, Pencil, ScrollText, Trash2, X } from 'lucide-react';
 import type { HistoricalEvent, LocationDetail } from '@/lib/types';
 import { REGION_COLORS } from '@/lib/regions';
+import { CATEGORY_HAS_HISTORY } from '@/lib/category';
 
 function formatYear(year: number) {
   return year < 0 ? `기원전 ${-year}` : `${year}`;
@@ -94,7 +95,7 @@ export function LocationPopup({ locationId, onClose, onEdit, onDeleted, presenta
 
       {!loading && detail && (
         <div className="space-y-4 px-4 py-4 text-[13px]">
-          {detail.history && (
+          {CATEGORY_HAS_HISTORY[detail.category ?? 'general'] && detail.history && (
             <div>
               <h4 className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
                 <Landmark className="h-3.5 w-3.5 text-gold" strokeWidth={2.25} />
@@ -167,6 +168,15 @@ export function LocationPopup({ locationId, onClose, onEdit, onDeleted, presenta
           </div>
 
           <div className="flex flex-wrap gap-2 border-t border-white/[0.06] pt-3.5">
+            <a
+              href={`https://www.google.com/maps/search/?api=1&query=${detail.lat},${detail.lng}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:bg-white/[0.08] hover:text-zinc-50"
+            >
+              <ExternalLink className="h-3.5 w-3.5" strokeWidth={2.25} />
+              구글 지도에서 열기
+            </a>
             <button
               onClick={() => router.push(`/timeline?locationId=${locationId}`)}
               className="flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.03] px-3 py-1.5 text-xs font-medium text-zinc-300 transition-colors hover:bg-white/[0.08] hover:text-zinc-50"

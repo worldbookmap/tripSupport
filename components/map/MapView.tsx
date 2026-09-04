@@ -2,10 +2,10 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { APIProvider, Map as GoogleMap, Marker, RenderingType, useMap } from '@vis.gl/react-google-maps';
-import { CheckCircle2, LayoutGrid, LocateFixed, Loader2, MapPin, MapPinPlus, Search, UtensilsCrossed, XCircle } from 'lucide-react';
+import { CheckCircle2, Coffee, LayoutGrid, LocateFixed, Loader2, MapPin, MapPinPlus, Search, UtensilsCrossed, XCircle } from 'lucide-react';
 import type { Location } from '@/lib/types';
 import type { PlaceSearchResult } from '@/lib/geocode';
-import { CATEGORY_COLORS, CATEGORY_LABELS, CATEGORY_MARKER_ICON, type Category } from '@/lib/category';
+import { CATEGORIES, CATEGORY_COLORS, CATEGORY_LABELS, CATEGORY_MARKER_ICON, type Category } from '@/lib/category';
 import { LocationModal } from './LocationModal';
 import { LocationPopup } from './LocationPopup';
 
@@ -13,8 +13,7 @@ type PinFilter = 'all' | Category;
 
 const PIN_FILTERS: { id: PinFilter; label: string }[] = [
   { id: 'all', label: '전체' },
-  { id: 'general', label: CATEGORY_LABELS.general },
-  { id: 'food', label: CATEGORY_LABELS.food },
+  ...CATEGORIES.map((c) => ({ id: c as PinFilter, label: CATEGORY_LABELS[c] })),
 ];
 
 const GOOGLE_MAPS_BROWSER_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY ?? '';
@@ -353,7 +352,7 @@ export function MapView() {
           {PIN_FILTERS.map((f) => {
             const active = pinFilter === f.id;
             const colors = f.id === 'all' ? null : CATEGORY_COLORS[f.id];
-            const Icon = f.id === 'all' ? LayoutGrid : f.id === 'food' ? UtensilsCrossed : MapPin;
+            const Icon = f.id === 'all' ? LayoutGrid : f.id === 'food' ? UtensilsCrossed : f.id === 'cafe' ? Coffee : MapPin;
             return (
               <button
                 key={f.id}
