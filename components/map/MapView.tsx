@@ -2,11 +2,20 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { APIProvider, Map as GoogleMap, Marker, RenderingType, useMap } from '@vis.gl/react-google-maps';
-import { CheckCircle2, Loader2, MapPin, MapPinPlus, Search, XCircle } from 'lucide-react';
+import { CheckCircle2, LayoutGrid, Loader2, MapPin, MapPinPlus, Search, UtensilsCrossed, XCircle } from 'lucide-react';
 import type { Location } from '@/lib/types';
 import type { PlaceSearchResult } from '@/lib/geocode';
+import { CATEGORY_COLORS, CATEGORY_LABELS, CATEGORY_MARKER_ICON, type Category } from '@/lib/category';
 import { LocationModal } from './LocationModal';
 import { LocationPopup } from './LocationPopup';
+
+type PinFilter = 'all' | Category;
+
+const PIN_FILTERS: { id: PinFilter; label: string }[] = [
+  { id: 'all', label: '전체' },
+  { id: 'general', label: CATEGORY_LABELS.general },
+  { id: 'food', label: CATEGORY_LABELS.food },
+];
 
 const GOOGLE_MAPS_BROWSER_KEY = process.env.NEXT_PUBLIC_GOOGLE_MAPS_BROWSER_KEY ?? '';
 const DOUBLE_CLICK_THRESHOLD_MS = 300;
@@ -55,6 +64,7 @@ export function MapView() {
   } | null>(null);
   const [moveToast, setMoveToast] = useState<'success' | 'error' | null>(null);
   const [placeLoading, setPlaceLoading] = useState(false);
+  const [pinFilter, setPinFilter] = useState<PinFilter>('all');
 
   const clickTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -71,6 +81,11 @@ export function MapView() {
   useEffect(() => {
     loadLocations();
   }, [loadLocations]);
+
+  const visibleLocations = useMemo(
+    () => (pinFilter === 'all' ? locations : locations.filter((loc) => (loc.category ?? 'general') === pinFilter)),
+    [locations, pinFilter]
+  );
 
   const searchMatches = useMemo(() => {
     const term = search.trim().toLowerCase();
@@ -258,6 +273,29 @@ export function MapView() {
             <MapPinPlus className="h-4 w-4" strokeWidth={2.25} />
           </button>
         </div>
+
+        <div className="mt-1.5 flex gap-1.5">
+          {PIN_FILTERS.map((f) => {
+            const active = pinFilter === f.id;
+            const colors = f.id === 'all' ? null : CATEGORY_COLORS[f.id];
+            const Icon = f.id === 'all' ? LayoutGrid : f.id === 'food' ? UtensilsCrossed : MapPin;
+            return (
+              <button
+                key={f.id}
+                onClick={() => setPinFilter(f.id)}
+                title={`${f.label} 핀만 보기`}
+                className={`flex items-center gap-1.5 rounded-xl border bg-surface px-2.5 py-1.5 text-[12px] font-medium shadow-lg shadow-black/40 transition-colors ${
+                  active && !colors ? 'border-accent/50 text-accent-strong' : !active ? 'border-white/[0.08] text-zinc-400 hover:text-zinc-200' : ''
+                }`}
+                style={active && colors ? { borderColor: colors.border, background: colors.bg, color: colors.text } : undefined}
+              >
+                <Icon className="h-3.5 w-3.5" strokeWidth={2.25} style={active && colors ? { color: colors.dot } : undefined} />
+                {f.label}
+              </button>
+            );
+          })}
+        </div>
+
         {search.trim() !== '' && (
           <ul className="mt-1.5 max-h-72 overflow-y-auto rounded-xl border border-white/[0.1] bg-surface py-1 shadow-xl shadow-black/50">
             {searchMatches.length > 0 &&
@@ -326,10 +364,11 @@ export function MapView() {
           }}
         >
           <MapController onReady={handleMapReady} onRawClick={handleRawMapClick} />
-          {locations.map((loc) => (
+          {visibleLocations.map((loc) => (
             <Marker
               key={loc.id}
               position={{ lat: loc.lat, lng: loc.lng }}
+              icon={CATEGORY_MARKER_ICON[loc.category ?? 'general']}
               draggable
               title={loc.name}
               onClick={() => handleMarkerClick(loc)}

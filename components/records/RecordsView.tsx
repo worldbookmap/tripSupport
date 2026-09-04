@@ -2,16 +2,24 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { BookOpen, Building2, Globe2, Loader2, MapPin, Search } from 'lucide-react';
+import { BookOpen, Building2, Globe2, LayoutGrid, Loader2, MapPin, Search, UtensilsCrossed } from 'lucide-react';
 import type { BookRecord, Location } from '@/lib/types';
 import { REGION_COLORS } from '@/lib/regions';
+import { CATEGORY_COLORS, CATEGORY_LABELS, type Category } from '@/lib/category';
 
 type Tab = 'country' | 'places' | 'books';
+type PlaceFilter = 'all' | Category;
 
 const TABS: { id: Tab; label: string; icon: typeof Globe2 }[] = [
   { id: 'country', label: '나라 > 도시', icon: Globe2 },
   { id: 'places', label: '장소', icon: MapPin },
   { id: 'books', label: '도서', icon: BookOpen },
+];
+
+const PLACE_FILTERS: { id: PlaceFilter; label: string; icon: typeof LayoutGrid }[] = [
+  { id: 'all', label: '전체', icon: LayoutGrid },
+  { id: 'general', label: CATEGORY_LABELS.general, icon: MapPin },
+  { id: 'food', label: CATEGORY_LABELS.food, icon: UtensilsCrossed },
 ];
 
 const UNSPECIFIED = '미분류';
@@ -38,16 +46,25 @@ function matchesBook(book: BookRecord, term: string) {
 
 function LocationCard({ loc }: { loc: Location }) {
   const colors = REGION_COLORS[loc.region] ?? REGION_COLORS['기타'];
+  const category = loc.category ?? 'general';
+  const categoryColors = CATEGORY_COLORS[category];
+  const CategoryIcon = category === 'food' ? UtensilsCrossed : MapPin;
   return (
     <Link
       href={`/timeline?locationId=${loc.id}`}
       className="block rounded-xl border border-white/[0.06] bg-white/[0.03] p-3 transition-colors hover:border-accent/40 hover:bg-white/[0.05]"
     >
       <div className="mb-1 flex items-center gap-2">
-        <MapPin className="h-3.5 w-3.5 shrink-0 text-accent-strong" strokeWidth={2.25} />
+        <CategoryIcon className="h-3.5 w-3.5 shrink-0" style={{ color: categoryColors.dot }} strokeWidth={2.25} />
         <span className="truncate text-sm font-medium text-zinc-100">{loc.name}</span>
         <span
           className="ml-auto shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium"
+          style={{ borderColor: categoryColors.border, background: categoryColors.bg, color: categoryColors.text }}
+        >
+          {CATEGORY_LABELS[category]}
+        </span>
+        <span
+          className="shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium"
           style={{ borderColor: colors.border, background: colors.bg, color: colors.text }}
         >
           {loc.region}
@@ -99,6 +116,7 @@ function BookCard({ book }: { book: BookRecord }) {
 
 export function RecordsView() {
   const [tab, setTab] = useState<Tab>('country');
+  const [placeFilter, setPlaceFilter] = useState<PlaceFilter>('all');
   const [search, setSearch] = useState('');
   const [locations, setLocations] = useState<Location[]>([]);
   const [books, setBooks] = useState<BookRecord[]>([]);
@@ -124,6 +142,12 @@ export function RecordsView() {
   );
 
   const filteredBooks = useMemo(() => (term ? books.filter((b) => matchesBook(b, term)) : books), [books, term]);
+
+  const filteredPlaces = useMemo(
+    () =>
+      placeFilter === 'all' ? filteredLocations : filteredLocations.filter((loc) => (loc.category ?? 'general') === placeFilter),
+    [filteredLocations, placeFilter]
+  );
 
   const countryTree = useMemo(() => {
     const map = new Map<string, Map<string, Location[]>>();
@@ -212,11 +236,35 @@ export function RecordsView() {
 
       {!loading && tab === 'places' && (
         <>
-          {filteredLocations.length === 0 && (
+          <div className="mb-4 flex gap-1.5">
+            {PLACE_FILTERS.map((f) => {
+              const active = placeFilter === f.id;
+              const colors = f.id === 'all' ? null : CATEGORY_COLORS[f.id];
+              const Icon = f.icon;
+              return (
+                <button
+                  key={f.id}
+                  onClick={() => setPlaceFilter(f.id)}
+                  className={`flex items-center gap-1.5 rounded-xl border px-3 py-1.5 text-xs font-medium transition-colors ${
+                    active && !colors
+                      ? 'border-accent/40 bg-accent/15 text-accent-strong'
+                      : !active
+                        ? 'border-white/[0.06] bg-white/[0.03] text-zinc-500 hover:text-zinc-200'
+                        : ''
+                  }`}
+                  style={active && colors ? { borderColor: colors.border, background: colors.bg, color: colors.text } : undefined}
+                >
+                  <Icon className="h-3.5 w-3.5" strokeWidth={2.25} style={active && colors ? { color: colors.dot } : undefined} />
+                  {f.label}
+                </button>
+              );
+            })}
+          </div>
+          {filteredPlaces.length === 0 && (
             <p className="py-10 text-center text-sm text-zinc-500">검색 결과가 없어요.</p>
           )}
           <div className="grid gap-2 sm:grid-cols-2">
-            {filteredLocations.map((loc) => (
+            {filteredPlaces.map((loc) => (
               <LocationCard key={loc.id} loc={loc} />
             ))}
           </div>

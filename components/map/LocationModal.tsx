@@ -19,12 +19,14 @@ import {
   Sparkles,
   Trash2,
   TriangleAlert,
+  UtensilsCrossed,
   Wand2,
   X,
 } from 'lucide-react';
 import type { Book, HistoricalEvent } from '@/lib/types';
 import type { BookSearchResult } from '@/lib/kakaoBooks';
 import { guessRegion, REGION_COLORS, REGIONS, type Region } from '@/lib/regions';
+import { CATEGORIES, CATEGORY_COLORS, CATEGORY_LABELS, type Category } from '@/lib/category';
 import { EventModal } from '@/components/timeline/EventModal';
 
 function formatYear(year: number) {
@@ -61,6 +63,7 @@ export function LocationModal({
   const [history, setHistory] = useState('');
   const [touristInfo, setTouristInfo] = useState(defaultTouristInfo ?? '');
   const [region, setRegion] = useState<Region>(() => (lat != null && lng != null ? guessRegion(lat, lng) : '기타'));
+  const [category, setCategory] = useState<Category>('general');
   const [country, setCountry] = useState('');
   const [city, setCity] = useState('');
   const [district, setDistrict] = useState('');
@@ -92,6 +95,7 @@ export function LocationModal({
         setHistory(data.history ?? '');
         setTouristInfo(data.tourist_info ?? '');
         setRegion(data.region ?? '기타');
+        setCategory(data.category ?? 'general');
         setCountry(data.country ?? '');
         setCity(data.city ?? '');
         setDistrict(data.district ?? '');
@@ -160,14 +164,25 @@ export function LocationModal({
         const res = await fetch(`/api/locations/${id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, history, tourist_info: touristInfo, region, country, city, district }),
+          body: JSON.stringify({ name, history, tourist_info: touristInfo, region, category, country, city, district }),
         });
         if (!res.ok) throw new Error('저장에 실패했습니다.');
       } else {
         const res = await fetch('/api/locations', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, lat, lng, history, tourist_info: touristInfo, region, country, city, district }),
+          body: JSON.stringify({
+            name,
+            lat,
+            lng,
+            history,
+            tourist_info: touristInfo,
+            region,
+            category,
+            country,
+            city,
+            district,
+          }),
         });
         if (!res.ok) throw new Error('저장에 실패했습니다.');
         const created = await res.json();
@@ -303,6 +318,33 @@ export function LocationModal({
                       </option>
                     ))}
                   </select>
+                </div>
+              </div>
+
+              <div>
+                <label className={labelClass}>구분</label>
+                <div className="flex gap-2">
+                  {CATEGORIES.map((c) => {
+                    const active = category === c;
+                    const colors = CATEGORY_COLORS[c];
+                    const Icon = c === 'food' ? UtensilsCrossed : MapPinned;
+                    return (
+                      <button
+                        key={c}
+                        type="button"
+                        onClick={() => setCategory(c)}
+                        className="flex items-center gap-1.5 rounded-xl border px-3.5 py-2 text-sm font-medium transition-colors"
+                        style={
+                          active
+                            ? { borderColor: colors.border, background: colors.bg, color: colors.text }
+                            : { borderColor: 'rgba(255,255,255,0.08)', background: 'rgba(255,255,255,0.03)', color: '#a1a1aa' }
+                        }
+                      >
+                        <Icon className="h-3.5 w-3.5" strokeWidth={2.25} style={active ? { color: colors.dot } : undefined} />
+                        {CATEGORY_LABELS[c]}
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
 

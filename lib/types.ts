@@ -1,4 +1,5 @@
 import type { Region } from './regions';
+import type { Category } from './category';
 
 export interface Location {
   id: string;
@@ -8,6 +9,7 @@ export interface Location {
   history: string;
   tourist_info: string;
   region: Region;
+  category: Category;
   country: string;
   city: string;
   district: string;

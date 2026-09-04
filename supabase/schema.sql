@@ -10,6 +10,7 @@ create table if not exists locations (
   history text not null default '',
   tourist_info text not null default '',
   region text not null default '기타', -- 대륙: 유럽/중동/아시아/북미/남미/기타
+  category text not null default 'general', -- 구분: general(일반)/food(음식)
   country text not null default '', -- 나라
   city text not null default '', -- 도시
   district text not null default '', -- 구/지구 (도시 하위 명칭)
@@ -21,6 +22,11 @@ create table if not exists locations (
 alter table locations add column if not exists country text not null default '';
 alter table locations add column if not exists city text not null default '';
 alter table locations add column if not exists district text not null default '';
+alter table locations add column if not exists category text not null default 'general';
+alter table locations drop constraint if exists locations_category_check;
+alter table locations add constraint locations_category_check check (category in ('general', 'food'));
+
+create index if not exists locations_category_idx on locations(category);
 
 create table if not exists authors (
   id uuid primary key default gen_random_uuid(),
