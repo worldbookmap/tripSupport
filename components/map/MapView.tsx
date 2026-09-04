@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { APIProvider, Map as GoogleMap, Marker, RenderingType, useMap } from '@vis.gl/react-google-maps';
-import { CheckCircle2, LayoutGrid, Loader2, MapPin, MapPinPlus, Search, UtensilsCrossed, XCircle } from 'lucide-react';
+import { CheckCircle2, LayoutGrid, LocateFixed, Loader2, MapPin, MapPinPlus, Search, UtensilsCrossed, XCircle } from 'lucide-react';
 import type { Location } from '@/lib/types';
 import type { PlaceSearchResult } from '@/lib/geocode';
 import { CATEGORY_COLORS, CATEGORY_LABELS, CATEGORY_MARKER_ICON, type Category } from '@/lib/category';
@@ -67,6 +67,9 @@ export function MapView() {
   const [moveToast, setMoveToast] = useState<'success' | 'error' | null>(null);
   const [placeLoading, setPlaceLoading] = useState(false);
   const [pinFilter, setPinFilter] = useState<PinFilter>('all');
+  const [myLocation, setMyLocation] = useState<{ lat: number; lng: number } | null>(null);
+  const [locating, setLocating] = useState(false);
+  const [locateError, setLocateError] = useState<string | null>(null);
 
   const clickTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -173,6 +176,32 @@ export function MapView() {
     const center = mapRef.current?.getCenter();
     if (!center) return;
     setModalState({ lat: center.lat(), lng: center.lng() });
+  }
+
+  function handleLocateMe() {
+    if (!navigator.geolocation) {
+      setLocateError('이 브라우저는 위치 확인을 지원하지 않습니다.');
+      setTimeout(() => setLocateError(null), 2500);
+      return;
+    }
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude, longitude } = pos.coords;
+        setMyLocation({ lat: latitude, lng: longitude });
+        mapRef.current?.panTo({ lat: latitude, lng: longitude });
+        mapRef.current?.setZoom(15);
+        setLocating(false);
+      },
+      (err) => {
+        setLocating(false);
+        setLocateError(
+          err.code === err.PERMISSION_DENIED ? '위치 권한이 거부되었습니다.' : '현재 위치를 가져오지 못했습니다.'
+        );
+        setTimeout(() => setLocateError(null), 2500);
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 60000 }
+    );
   }
 
   const handleMapReady = useCallback(
@@ -306,6 +335,18 @@ export function MapView() {
           >
             <MapPinPlus className="h-4 w-4" strokeWidth={2.25} />
           </button>
+          <button
+            onClick={handleLocateMe}
+            disabled={locating}
+            title="내 위치로 이동"
+            className="flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-xl border border-accent/30 bg-surface text-accent-strong shadow-lg shadow-black/40 transition-colors hover:bg-accent/15 disabled:opacity-50"
+          >
+            {locating ? (
+              <Loader2 className="h-4 w-4 animate-spin" strokeWidth={2.25} />
+            ) : (
+              <LocateFixed className="h-4 w-4" strokeWidth={2.25} />
+            )}
+          </button>
         </div>
 
         <div className="mt-1.5 flex gap-1.5">
@@ -417,8 +458,30 @@ export function MapView() {
               onClick={handlePreviewMarkerClick}
             />
           )}
+          {myLocation && (
+            <Marker
+              position={myLocation}
+              title="내 위치"
+              zIndex={1000}
+              icon={{
+                path: google.maps.SymbolPath.CIRCLE,
+                scale: 8,
+                fillColor: '#4285f4',
+                fillOpacity: 1,
+                strokeColor: '#ffffff',
+                strokeWeight: 2,
+              }}
+            />
+          )}
         </GoogleMap>
       </APIProvider>
+
+      {locateError && (
+        <div className="pointer-events-none absolute left-1/2 top-3 z-[2100] flex -translate-x-1/2 items-center gap-2 rounded-xl border border-red-500/30 bg-surface px-4 py-2.5 text-sm font-medium text-red-300 shadow-2xl shadow-black/50 sm:top-4">
+          <XCircle className="h-4 w-4" strokeWidth={2.25} />
+          {locateError}
+        </div>
+      )}
 
       {placeLoading && (
         <div className="pointer-events-none absolute left-1/2 top-3 z-[2100] flex -translate-x-1/2 items-center gap-2 rounded-xl border border-accent/30 bg-surface px-4 py-2.5 text-sm font-medium text-accent-strong shadow-2xl shadow-black/50 sm:top-4">
