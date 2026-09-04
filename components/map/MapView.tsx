@@ -74,11 +74,31 @@ export function MapView() {
   const mapClickTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastMapClickRef = useRef<{ lat: number; lng: number; placeId?: string } | null>(null);
   const handleMapDblclickRef = useRef<(info: { lat: number; lng: number; placeId?: string }) => void>(() => {});
+  const locationsRef = useRef<Location[]>([]);
+  const hasCenteredRef = useRef(false);
+
+  // 처음 지도를 열었을 때 딱 한 번, 가장 최근에 수정한 지역을 중심으로 보여줍니다.
+  // 지도/데이터 중 무엇이 먼저 준비되든 대응할 수 있게 두 지점(handleMapReady, loadLocations)에서 모두 시도합니다.
+  const centerOnMostRecent = useCallback(() => {
+    if (hasCenteredRef.current) return;
+    const map = mapRef.current;
+    const locs = locationsRef.current;
+    if (!map || locs.length === 0) return;
+    const mostRecent = locs.reduce((a, b) => (new Date(a.updated_at) > new Date(b.updated_at) ? a : b));
+    map.panTo({ lat: mostRecent.lat, lng: mostRecent.lng });
+    map.setZoom(13);
+    hasCenteredRef.current = true;
+  }, []);
 
   const loadLocations = useCallback(async () => {
     const res = await fetch('/api/locations');
-    if (res.ok) setLocations(await res.json());
-  }, []);
+    if (res.ok) {
+      const data: Location[] = await res.json();
+      setLocations(data);
+      locationsRef.current = data;
+      centerOnMostRecent();
+    }
+  }, [centerOnMostRecent]);
 
   useEffect(() => {
     loadLocations();
@@ -155,9 +175,13 @@ export function MapView() {
     setModalState({ lat: center.lat(), lng: center.lng() });
   }
 
-  const handleMapReady = useCallback((map: google.maps.Map) => {
-    mapRef.current = map;
-  }, []);
+  const handleMapReady = useCallback(
+    (map: google.maps.Map) => {
+      mapRef.current = map;
+      centerOnMostRecent();
+    },
+    [centerOnMostRecent]
+  );
 
   // 300ms 안에 원시 click이 다시 들어오면 더블클릭으로 간주해, 가장 최근 시맨틱 click이 알려준
   // 좌표/placeId(lastMapClickRef)로 새 지역 추가 흐름을 시작합니다.
