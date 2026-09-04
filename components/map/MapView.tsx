@@ -47,6 +47,7 @@ type ModalState = {
   locationId?: string;
   defaultName?: string;
   defaultTouristInfo?: string;
+  defaultAddress?: string;
 };
 
 export function MapView() {
@@ -61,6 +62,7 @@ export function MapView() {
     lng: number;
     name: string;
     description: string;
+    address: string;
   } | null>(null);
   const [moveToast, setMoveToast] = useState<'success' | 'error' | null>(null);
   const [placeLoading, setPlaceLoading] = useState(false);
@@ -127,7 +129,13 @@ export function MapView() {
     mapRef.current?.setZoom(13);
     setSearch('');
     setGeoResults([]);
-    setPreviewMarker({ lat: result.lat, lng: result.lng, name: result.name, description: result.description });
+    setPreviewMarker({
+      lat: result.lat,
+      lng: result.lng,
+      name: result.name,
+      description: result.description,
+      address: result.displayName,
+    });
   }
 
   function handlePreviewMarkerClick() {
@@ -137,6 +145,7 @@ export function MapView() {
       lng: previewMarker.lng,
       defaultName: previewMarker.name,
       defaultTouristInfo: previewMarker.description,
+      defaultAddress: previewMarker.address || undefined,
     });
   }
 
@@ -188,6 +197,7 @@ export function MapView() {
           lng,
           defaultName: data.name || undefined,
           defaultTouristInfo: data.description || undefined,
+          defaultAddress: data.address || undefined,
         });
         return;
       }
@@ -422,6 +432,7 @@ export function MapView() {
           locationId={modalState.locationId}
           defaultName={modalState.defaultName}
           defaultTouristInfo={modalState.defaultTouristInfo}
+          defaultAddress={modalState.defaultAddress}
           onClose={() => {
             setModalState(null);
             setPreviewMarker(null);

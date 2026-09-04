@@ -2,6 +2,7 @@ export interface ReverseGeocodeResult {
   country: string;
   city: string;
   district: string;
+  address: string;
 }
 
 export interface PlaceSearchResult {
@@ -15,6 +16,7 @@ export interface PlaceSearchResult {
 export interface PlaceInfo {
   name: string;
   description: string;
+  address: string;
   lat: number;
   lng: number;
 }
@@ -64,7 +66,7 @@ export async function reverseGeocode(lat: number, lng: number): Promise<ReverseG
 
   const data: GoogleGeocodeResponse = await res.json();
   if (data.status === 'ZERO_RESULTS') {
-    return { country: '', city: '', district: '' };
+    return { country: '', city: '', district: '', address: '' };
   }
   if (data.status !== 'OK') {
     throw new Error(`역지오코딩 실패: ${data.status}${data.error_message ? ` - ${data.error_message}` : ''}`);
@@ -89,6 +91,7 @@ export async function reverseGeocode(lat: number, lng: number): Promise<ReverseG
     country: findComponent(components, 'country') ?? '',
     city,
     district,
+    address: data.results[0].formatted_address ?? '',
   };
 }
 
@@ -157,6 +160,7 @@ export async function getPlaceDetails(placeId: string): Promise<PlaceInfo> {
   return {
     name: data.displayName?.text ?? '',
     description: data.editorialSummary?.text ?? '',
+    address: data.formattedAddress ?? '',
     lat: data.location.latitude,
     lng: data.location.longitude,
   };

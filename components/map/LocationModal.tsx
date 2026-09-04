@@ -10,6 +10,7 @@ import {
   Globe2,
   Landmark,
   Loader2,
+  MapPin,
   MapPinned,
   Pencil,
   Plus,
@@ -43,6 +44,7 @@ interface LocationModalProps {
   locationId?: string;
   defaultName?: string;
   defaultTouristInfo?: string;
+  defaultAddress?: string;
   onClose: () => void;
   onSaved: () => void;
   onDeleted: () => void;
@@ -54,6 +56,7 @@ export function LocationModal({
   locationId,
   defaultName,
   defaultTouristInfo,
+  defaultAddress,
   onClose,
   onSaved,
   onDeleted,
@@ -67,6 +70,7 @@ export function LocationModal({
   const [country, setCountry] = useState('');
   const [city, setCity] = useState('');
   const [district, setDistrict] = useState('');
+  const [address, setAddress] = useState(defaultAddress ?? '');
   const [savedLat, setSavedLat] = useState<number | undefined>(lat);
   const [savedLng, setSavedLng] = useState<number | undefined>(lng);
   const [geoLoading, setGeoLoading] = useState(false);
@@ -99,6 +103,7 @@ export function LocationModal({
         setCountry(data.country ?? '');
         setCity(data.city ?? '');
         setDistrict(data.district ?? '');
+        setAddress(data.address ?? '');
         setSavedLat(data.lat);
         setSavedLng(data.lng);
         setBooks(data.books ?? []);
@@ -118,6 +123,7 @@ export function LocationModal({
         if (data.country) setCountry(data.country);
         if (data.city) setCity(data.city);
         setDistrict(data.district ?? '');
+        if (data.address) setAddress(data.address);
       }
     } finally {
       setGeoLoading(false);
@@ -164,7 +170,17 @@ export function LocationModal({
         const res = await fetch(`/api/locations/${id}`, {
           method: 'PATCH',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ name, history, tourist_info: touristInfo, region, category, country, city, district }),
+          body: JSON.stringify({
+            name,
+            history,
+            tourist_info: touristInfo,
+            region,
+            category,
+            country,
+            city,
+            district,
+            address,
+          }),
         });
         if (!res.ok) throw new Error('저장에 실패했습니다.');
       } else {
@@ -182,6 +198,7 @@ export function LocationModal({
             country,
             city,
             district,
+            address,
           }),
         });
         if (!res.ok) throw new Error('저장에 실패했습니다.');
@@ -389,7 +406,7 @@ export function LocationModal({
                   type="button"
                   onClick={handleAutoFill}
                   disabled={savedLat == null || savedLng == null || geoLoading}
-                  title="좌표로 나라/도시 자동 채우기"
+                  title="좌표로 나라/도시/주소 자동 채우기"
                   className="flex h-[42px] shrink-0 items-center gap-1.5 rounded-xl border border-white/[0.08] bg-white/[0.03] px-3.5 text-sm font-medium text-zinc-300 transition-colors hover:bg-white/[0.08] hover:text-zinc-50 disabled:opacity-40"
                 >
                   {geoLoading ? (
@@ -399,6 +416,19 @@ export function LocationModal({
                   )}
                   자동 채우기
                 </button>
+              </div>
+
+              <div>
+                <label className={labelClass}>
+                  <MapPin className="h-3.5 w-3.5 text-zinc-400" strokeWidth={2.25} />
+                  주소
+                </label>
+                <input
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  className={inputClass}
+                  placeholder="예: 12 Rue de Rivoli, 75004 Paris, France"
+                />
               </div>
 
               <div>

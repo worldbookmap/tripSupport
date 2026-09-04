@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { BookOpen, CalendarClock, History, Landmark, Pencil, ScrollText, Trash2, X } from 'lucide-react';
+import { BookOpen, CalendarClock, History, Landmark, MapPin, Pencil, ScrollText, Trash2, X } from 'lucide-react';
 import type { HistoricalEvent, LocationDetail } from '@/lib/types';
 import { REGION_COLORS } from '@/lib/regions';
 
@@ -65,6 +65,12 @@ export function LocationPopup({ locationId, onClose, onEdit, onDeleted }: Locati
           {detail && (detail.country || detail.city || detail.district) && (
             <p className="mt-0.5 truncate text-[12px] text-zinc-500">
               {[detail.country, detail.city, detail.district].filter(Boolean).join(' · ')}
+            </p>
+          )}
+          {detail?.address && (
+            <p className="mt-0.5 flex items-start gap-1 text-[11.5px] leading-snug text-zinc-500">
+              <MapPin className="mt-0.5 h-3 w-3 shrink-0 text-zinc-600" strokeWidth={2.25} />
+              <span className="min-w-0">{detail.address}</span>
             </p>
           )}
         </div>

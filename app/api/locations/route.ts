@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
   let query = supabase.from('locations').select('*').order('created_at', { ascending: false });
   if (q) {
     const term = sanitizeSearchTerm(q);
-    query = query.or(`name.ilike.%${term}%,history.ilike.%${term}%,tourist_info.ilike.%${term}%`);
+    query = query.or(`name.ilike.%${term}%,history.ilike.%${term}%,tourist_info.ilike.%${term}%,address.ilike.%${term}%`);
   }
 
   const { data, error } = await query;
@@ -21,7 +21,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
-  const { name, lat, lng, history, tourist_info, region, category, country, city, district } = body ?? {};
+  const { name, lat, lng, history, tourist_info, region, category, country, city, district, address } = body ?? {};
 
   if (typeof name !== 'string' || !name.trim() || typeof lat !== 'number' || typeof lng !== 'number') {
     return NextResponse.json({ error: 'name, lat, lng는 필수입니다.' }, { status: 400 });
@@ -43,6 +43,7 @@ export async function POST(request: NextRequest) {
       country: typeof country === 'string' ? country : '',
       city: typeof city === 'string' ? city : '',
       district: typeof district === 'string' ? district : '',
+      address: typeof address === 'string' ? address : '',
     })
     .select()
     .single();

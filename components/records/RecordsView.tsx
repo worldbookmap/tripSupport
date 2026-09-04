@@ -30,6 +30,7 @@ function matchesLocation(loc: Location, term: string) {
     loc.country.toLowerCase().includes(term) ||
     loc.city.toLowerCase().includes(term) ||
     loc.district.toLowerCase().includes(term) ||
+    loc.address.toLowerCase().includes(term) ||
     loc.history.toLowerCase().includes(term) ||
     loc.tourist_info.toLowerCase().includes(term)
   );
@@ -75,6 +76,7 @@ function LocationCard({ loc }: { loc: Location }) {
           {[loc.country, loc.city, loc.district].filter(Boolean).join(' · ')}
         </p>
       )}
+      {loc.address && <p className="mb-1 truncate text-[11px] text-zinc-600">{loc.address}</p>}
       {loc.history && <p className="line-clamp-2 text-xs leading-relaxed text-zinc-400">{loc.history}</p>}
     </Link>
   );

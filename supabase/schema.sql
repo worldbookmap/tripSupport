@@ -14,6 +14,7 @@ create table if not exists locations (
   country text not null default '', -- 나라
   city text not null default '', -- 도시
   district text not null default '', -- 구/지구 (도시 하위 명칭)
+  address text not null default '', -- 전체 주소 (지오코딩 formatted_address)
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -23,6 +24,7 @@ alter table locations add column if not exists country text not null default '';
 alter table locations add column if not exists city text not null default '';
 alter table locations add column if not exists district text not null default '';
 alter table locations add column if not exists category text not null default 'general';
+alter table locations add column if not exists address text not null default '';
 alter table locations drop constraint if exists locations_category_check;
 alter table locations add constraint locations_category_check check (category in ('general', 'food'));
 
