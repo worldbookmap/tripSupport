@@ -10,7 +10,7 @@ create table if not exists locations (
   history text not null default '',
   tourist_info text not null default '',
   region text not null default '기타', -- 대륙: 유럽/중동/아시아/북미/남미/기타
-  category text not null default 'general', -- 구분: general(일반)/food(음식)
+  category text not null default 'general', -- 구분: general(일반)/food(음식)/cafe(카페)
   country text not null default '', -- 나라
   city text not null default '', -- 도시
   district text not null default '', -- 구/지구 (도시 하위 명칭)
@@ -26,7 +26,7 @@ alter table locations add column if not exists district text not null default ''
 alter table locations add column if not exists category text not null default 'general';
 alter table locations add column if not exists address text not null default '';
 alter table locations drop constraint if exists locations_category_check;
-alter table locations add constraint locations_category_check check (category in ('general', 'food'));
+alter table locations add constraint locations_category_check check (category in ('general', 'food', 'cafe'));
 
 create index if not exists locations_category_idx on locations(category);
 
@@ -68,3 +68,20 @@ create index if not exists historical_events_year_idx on historical_events(year)
 create index if not exists book_authors_author_id_idx on book_authors(author_id);
 create index if not exists locations_country_idx on locations(country);
 create index if not exists locations_city_idx on locations(city);
+
+create table if not exists routes (
+  id uuid primary key default gen_random_uuid(),
+  name text not null,
+  info text not null default '', -- 경로 정보: 교통편, 소요 시간 등 자유 텍스트
+  region text not null default '기타', -- 대륙 권역 (지역과 동일한 분류 체계)
+  start_lat double precision not null,
+  start_lng double precision not null,
+  start_name text not null default '', -- 출발 지점 이름 (선택, 자동/수동 입력)
+  end_lat double precision not null,
+  end_lng double precision not null,
+  end_name text not null default '', -- 도착 지점 이름 (선택, 자동/수동 입력)
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists routes_region_idx on routes(region);

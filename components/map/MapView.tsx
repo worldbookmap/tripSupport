@@ -1,13 +1,28 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { APIProvider, Map as GoogleMap, Marker, RenderingType, useMap } from '@vis.gl/react-google-maps';
-import { CheckCircle2, Coffee, LayoutGrid, LocateFixed, Loader2, MapPin, MapPinPlus, Search, UtensilsCrossed, XCircle } from 'lucide-react';
-import type { Location } from '@/lib/types';
+import { APIProvider, Map as GoogleMap, Marker, Polyline, RenderingType, useMap } from '@vis.gl/react-google-maps';
+import {
+  CheckCircle2,
+  Coffee,
+  LayoutGrid,
+  LocateFixed,
+  Loader2,
+  MapPin,
+  MapPinPlus,
+  Route as RouteIcon,
+  Search,
+  UtensilsCrossed,
+  XCircle,
+} from 'lucide-react';
+import type { Location, RouteRecord } from '@/lib/types';
 import type { PlaceSearchResult } from '@/lib/geocode';
 import { CATEGORIES, CATEGORY_COLORS, CATEGORY_LABELS, CATEGORY_MARKER_ICON, type Category } from '@/lib/category';
+import { REGION_COLORS } from '@/lib/regions';
 import { LocationModal } from './LocationModal';
 import { LocationPopup } from './LocationPopup';
+import { RouteModal } from './RouteModal';
+import { RoutePopup } from './RoutePopup';
 
 type PinFilter = 'all' | Category;
 
@@ -49,6 +64,67 @@ type ModalState = {
   defaultAddress?: string;
 };
 
+type RouteModalState = { routeId: string } | { startLat: number; startLng: number; endLat: number; endLng: number };
+
+const MIN_ROUTE_DRAG_DEGREES = 1e-6;
+
+// 경로 그리기 모드일 때 지도 패닝 대신 A→B 드래그로 임시 선을 그리고, 손을 떼면 좌표를 넘겨줍니다.
+function RouteDrawLayer({
+  active,
+  onDrawEnd,
+}: {
+  active: boolean;
+  onDrawEnd: (start: google.maps.LatLngLiteral, end: google.maps.LatLngLiteral) => void;
+}) {
+  const map = useMap();
+  const [previewPath, setPreviewPath] = useState<google.maps.LatLngLiteral[] | null>(null);
+  const startRef = useRef<google.maps.LatLngLiteral | null>(null);
+  const draggingRef = useRef(false);
+
+  useEffect(() => {
+    if (!map) return;
+    map.setOptions({ draggable: !active });
+    if (!active) {
+      draggingRef.current = false;
+      startRef.current = null;
+      setPreviewPath(null);
+      return;
+    }
+
+    const mousedown = map.addListener('mousedown', (e: google.maps.MapMouseEvent) => {
+      if (!e.latLng) return;
+      const point = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+      startRef.current = point;
+      draggingRef.current = true;
+      setPreviewPath([point, point]);
+    });
+    const mousemove = map.addListener('mousemove', (e: google.maps.MapMouseEvent) => {
+      if (!draggingRef.current || !startRef.current || !e.latLng) return;
+      setPreviewPath([startRef.current, { lat: e.latLng.lat(), lng: e.latLng.lng() }]);
+    });
+    const mouseup = map.addListener('mouseup', (e: google.maps.MapMouseEvent) => {
+      const start = startRef.current;
+      draggingRef.current = false;
+      startRef.current = null;
+      setPreviewPath(null);
+      if (!start || !e.latLng) return;
+      const end = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+      if (Math.abs(start.lat - end.lat) < MIN_ROUTE_DRAG_DEGREES && Math.abs(start.lng - end.lng) < MIN_ROUTE_DRAG_DEGREES) return;
+      onDrawEnd(start, end);
+    });
+
+    return () => {
+      mousedown.remove();
+      mousemove.remove();
+      mouseup.remove();
+      map.setOptions({ draggable: true });
+    };
+  }, [map, active, onDrawEnd]);
+
+  if (!previewPath) return null;
+  return <Polyline path={previewPath} strokeColor="#facc15" strokeOpacity={0.9} strokeWeight={3} />;
+}
+
 export function MapView() {
   const [locations, setLocations] = useState<Location[]>([]);
   const [modalState, setModalState] = useState<ModalState | null>(null);
@@ -69,6 +145,10 @@ export function MapView() {
   const [myLocation, setMyLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locating, setLocating] = useState(false);
   const [locateError, setLocateError] = useState<string | null>(null);
+  const [routes, setRoutes] = useState<RouteRecord[]>([]);
+  const [drawMode, setDrawMode] = useState(false);
+  const [routeModalState, setRouteModalState] = useState<RouteModalState | null>(null);
+  const [routePopupId, setRoutePopupId] = useState<string | null>(null);
 
   const clickTimersRef = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
   const mapRef = useRef<google.maps.Map | null>(null);
@@ -78,6 +158,11 @@ export function MapView() {
   const handleMapDblclickRef = useRef<(info: { lat: number; lng: number; placeId?: string }) => void>(() => {});
   const locationsRef = useRef<Location[]>([]);
   const hasCenteredRef = useRef(false);
+  const drawModeRef = useRef(false);
+
+  useEffect(() => {
+    drawModeRef.current = drawMode;
+  }, [drawMode]);
 
   // 처음 지도를 열었을 때 딱 한 번, 가장 최근에 수정한 지역을 중심으로 보여줍니다.
   // 지도/데이터 중 무엇이 먼저 준비되든 대응할 수 있게 두 지점(handleMapReady, loadLocations)에서 모두 시도합니다.
@@ -105,6 +190,22 @@ export function MapView() {
   useEffect(() => {
     loadLocations();
   }, [loadLocations]);
+
+  const loadRoutes = useCallback(async () => {
+    const res = await fetch('/api/routes');
+    if (res.ok) setRoutes(await res.json());
+  }, []);
+
+  useEffect(() => {
+    loadRoutes();
+  }, [loadRoutes]);
+
+  const handleDrawEnd = useCallback((start: google.maps.LatLngLiteral, end: google.maps.LatLngLiteral) => {
+    setDrawMode(false);
+    setPopupLocationId(null);
+    setRoutePopupId(null);
+    setRouteModalState({ startLat: start.lat, startLng: start.lng, endLat: end.lat, endLng: end.lng });
+  }, []);
 
   const visibleLocations = useMemo(
     () => (pinFilter === 'all' ? locations : locations.filter((loc) => (loc.category ?? 'general') === pinFilter)),
@@ -214,6 +315,8 @@ export function MapView() {
   // 300ms 안에 원시 click이 다시 들어오면 더블클릭으로 간주해, 가장 최근 시맨틱 click이 알려준
   // 좌표/placeId(lastMapClickRef)로 새 지역 추가 흐름을 시작합니다.
   const handleRawMapClick = useCallback((e: MouseEvent) => {
+    // 경로 그리기 모드에서는 클릭이 지역 추가로 이어지면 안 되므로 무시합니다.
+    if (drawModeRef.current) return;
     // 저장된 마커·미리보기 마커·줌 버튼 등은 각자 자체적으로 클릭/더블클릭을 처리하므로 여기서는 무시합니다.
     // 구글 지도 마커는 항상 role="button"으로 렌더링되어 이 방식으로 구분할 수 있습니다.
     const target = e.target as HTMLElement | null;
@@ -314,6 +417,18 @@ export function MapView() {
     }
   }
 
+  function handleToggleDrawMode() {
+    setDrawMode((prev) => {
+      const next = !prev;
+      if (next) {
+        setPopupLocationId(null);
+        setRoutePopupId(null);
+        setPreviewMarker(null);
+      }
+      return next;
+    });
+  }
+
   return (
     <div className="relative flex-1">
       <div className="absolute left-14 right-4 top-3 z-[1000] sm:left-16 sm:right-auto sm:top-4 sm:w-80">
@@ -346,7 +461,24 @@ export function MapView() {
               <LocateFixed className="h-4 w-4" strokeWidth={2.25} />
             )}
           </button>
+          <button
+            onClick={handleToggleDrawMode}
+            title={drawMode ? '경로 그리기 취소' : '두 지점을 드래그해 경로 그리기'}
+            className={`flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-xl border shadow-lg shadow-black/40 transition-colors ${
+              drawMode
+                ? 'border-amber-400/50 bg-amber-400/15 text-amber-300'
+                : 'border-accent/30 bg-surface text-accent-strong hover:bg-accent/15'
+            }`}
+          >
+            <RouteIcon className="h-4 w-4" strokeWidth={2.25} />
+          </button>
         </div>
+
+        {drawMode && (
+          <div className="mt-1.5 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-[12px] font-medium text-amber-200 shadow-lg shadow-black/40">
+            지도를 드래그해 A 지점에서 B 지점까지 선을 그어주세요.
+          </div>
+        )}
 
         <div className="mt-1.5 flex gap-1.5">
           {PIN_FILTERS.map((f) => {
@@ -427,23 +559,42 @@ export function MapView() {
           disableDoubleClickZoom
           disableDefaultUI
           zoomControl
-          className="absolute inset-0"
+          className={`absolute inset-0 ${drawMode ? 'cursor-crosshair' : ''}`}
           onClick={(e) => {
+            if (drawMode) return;
             const latLng = e.detail.latLng;
             if (latLng) {
               lastMapClickRef.current = { lat: latLng.lat, lng: latLng.lng, placeId: e.detail.placeId ?? undefined };
             }
             setPopupLocationId(null);
+            setRoutePopupId(null);
             setPreviewMarker(null);
           }}
         >
           <MapController onReady={handleMapReady} onRawClick={handleRawMapClick} />
+          <RouteDrawLayer active={drawMode} onDrawEnd={handleDrawEnd} />
+          {routes.map((route) => (
+            <Polyline
+              key={route.id}
+              path={[
+                { lat: route.start_lat, lng: route.start_lng },
+                { lat: route.end_lat, lng: route.end_lng },
+              ]}
+              strokeColor={REGION_COLORS[route.region ?? '기타'].dot}
+              strokeOpacity={0.85}
+              strokeWeight={4}
+              onClick={() => {
+                setPopupLocationId(null);
+                setRoutePopupId(route.id);
+              }}
+            />
+          ))}
           {visibleLocations.map((loc) => (
             <Marker
               key={loc.id}
               position={{ lat: loc.lat, lng: loc.lng }}
               icon={CATEGORY_MARKER_ICON[loc.category ?? 'general']}
-              draggable
+              draggable={!drawMode}
               title={loc.name}
               onClick={() => handleMarkerClick(loc)}
               onDragStart={() => handleMarkerDragStart(loc)}
@@ -547,6 +698,38 @@ export function MapView() {
           onDeleted={() => {
             loadLocations();
             setPopupLocationId(null);
+          }}
+        />
+      )}
+
+      {routeModalState && (
+        <RouteModal
+          routeId={'routeId' in routeModalState ? routeModalState.routeId : undefined}
+          startLat={'startLat' in routeModalState ? routeModalState.startLat : undefined}
+          startLng={'startLng' in routeModalState ? routeModalState.startLng : undefined}
+          endLat={'endLat' in routeModalState ? routeModalState.endLat : undefined}
+          endLng={'endLng' in routeModalState ? routeModalState.endLng : undefined}
+          onClose={() => setRouteModalState(null)}
+          onSaved={() => loadRoutes()}
+          onDeleted={() => {
+            loadRoutes();
+            setRouteModalState(null);
+            setRoutePopupId(null);
+          }}
+        />
+      )}
+
+      {routePopupId && !routeModalState && (
+        <RoutePopup
+          routeId={routePopupId}
+          onClose={() => setRoutePopupId(null)}
+          onEdit={(id) => {
+            setRoutePopupId(null);
+            setRouteModalState({ routeId: id });
+          }}
+          onDeleted={() => {
+            loadRoutes();
+            setRoutePopupId(null);
           }}
         />
       )}

@@ -54,6 +54,21 @@ export interface HistoricalEvent {
   created_at: string;
 }
 
+export interface RouteRecord {
+  id: string;
+  name: string;
+  info: string;
+  region: Region;
+  start_lat: number;
+  start_lng: number;
+  start_name: string;
+  end_lat: number;
+  end_lng: number;
+  end_name: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface MindmapNode {
   id: string;
   type: 'location' | 'book' | 'event' | 'author' | 'country' | 'city';
