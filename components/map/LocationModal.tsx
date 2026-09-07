@@ -236,6 +236,10 @@ export function LocationModal({
 
   async function handleAddBook(result: BookSearchResult) {
     if (!id) return;
+    if (books.some((b) => b.source_id === result.sourceId)) {
+      alert('이미 등록된 책입니다.');
+      return;
+    }
     setError(null);
     const res = await fetch(`/api/locations/${id}/books`, {
       method: 'POST',
