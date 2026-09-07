@@ -9,9 +9,18 @@ export async function GET() {
   return NextResponse.json(data);
 }
 
+function isLatLng(value: unknown): value is { lat: number; lng: number } {
+  return (
+    typeof value === 'object' &&
+    value !== null &&
+    typeof (value as { lat: unknown }).lat === 'number' &&
+    typeof (value as { lng: unknown }).lng === 'number'
+  );
+}
+
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
-  const { name, info, region, start_lat, start_lng, start_name, end_lat, end_lng, end_name } = body ?? {};
+  const { name, info, region, start_lat, start_lng, start_name, end_lat, end_lng, end_name, path } = body ?? {};
 
   if (
     typeof name !== 'string' ||
@@ -25,6 +34,13 @@ export async function POST(request: NextRequest) {
   }
 
   const resolvedRegion = REGIONS.includes(region) ? region : guessRegion((start_lat + end_lat) / 2, (start_lng + end_lng) / 2);
+  const resolvedPath =
+    Array.isArray(path) && path.filter(isLatLng).length >= 2
+      ? path.filter(isLatLng).map((p) => ({ lat: p.lat, lng: p.lng }))
+      : [
+          { lat: start_lat, lng: start_lng },
+          { lat: end_lat, lng: end_lng },
+        ];
 
   const { data, error } = await supabase
     .from('routes')
@@ -38,6 +54,7 @@ export async function POST(request: NextRequest) {
       end_lat,
       end_lng,
       end_name: typeof end_name === 'string' ? end_name : '',
+      path: resolvedPath,
     })
     .select()
     .single();

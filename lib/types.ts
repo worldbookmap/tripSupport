@@ -57,6 +57,11 @@ export interface HistoricalEvent {
   created_at: string;
 }
 
+export interface LatLng {
+  lat: number;
+  lng: number;
+}
+
 export interface RouteRecord {
   id: string;
   name: string;
@@ -68,6 +73,7 @@ export interface RouteRecord {
   end_lat: number;
   end_lng: number;
   end_name: string;
+  path: LatLng[];
   created_at: string;
   updated_at: string;
 }

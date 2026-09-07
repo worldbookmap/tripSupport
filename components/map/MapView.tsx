@@ -64,21 +64,25 @@ type ModalState = {
   defaultAddress?: string;
 };
 
-type RouteModalState = { routeId: string } | { startLat: number; startLng: number; endLat: number; endLng: number };
+type RouteModalState = { routeId: string } | { path: google.maps.LatLngLiteral[] };
 
+// 드래그 중 미세하게 흔들리는 지점을 걸러 경로 배열이 과도하게 커지지 않도록 하는 최소 간격
+const MIN_POINT_DEGREES = 2e-5;
+// 실제로 드래그했다고 판단할 최소 이동 거리 (제자리 클릭과 구분)
 const MIN_ROUTE_DRAG_DEGREES = 1e-6;
 
-// 경로 그리기 모드일 때 지도 패닝 대신 A→B 드래그로 임시 선을 그리고, 손을 떼면 좌표를 넘겨줍니다.
+// 경로 그리기 모드일 때 지도 패닝 대신 자유롭게 드래그한 궤적을 그대로 임시 선으로 보여주고,
+// 손을 떼면 지금까지 지나온 좌표 배열 전체를 넘겨줍니다.
 function RouteDrawLayer({
   active,
   onDrawEnd,
 }: {
   active: boolean;
-  onDrawEnd: (start: google.maps.LatLngLiteral, end: google.maps.LatLngLiteral) => void;
+  onDrawEnd: (path: google.maps.LatLngLiteral[]) => void;
 }) {
   const map = useMap();
   const [previewPath, setPreviewPath] = useState<google.maps.LatLngLiteral[] | null>(null);
-  const startRef = useRef<google.maps.LatLngLiteral | null>(null);
+  const pathRef = useRef<google.maps.LatLngLiteral[]>([]);
   const draggingRef = useRef(false);
 
   useEffect(() => {
@@ -86,7 +90,7 @@ function RouteDrawLayer({
     map.setOptions({ draggable: !active });
     if (!active) {
       draggingRef.current = false;
-      startRef.current = null;
+      pathRef.current = [];
       setPreviewPath(null);
       return;
     }
@@ -94,23 +98,30 @@ function RouteDrawLayer({
     const mousedown = map.addListener('mousedown', (e: google.maps.MapMouseEvent) => {
       if (!e.latLng) return;
       const point = { lat: e.latLng.lat(), lng: e.latLng.lng() };
-      startRef.current = point;
+      pathRef.current = [point];
       draggingRef.current = true;
-      setPreviewPath([point, point]);
+      setPreviewPath(pathRef.current);
     });
     const mousemove = map.addListener('mousemove', (e: google.maps.MapMouseEvent) => {
-      if (!draggingRef.current || !startRef.current || !e.latLng) return;
-      setPreviewPath([startRef.current, { lat: e.latLng.lat(), lng: e.latLng.lng() }]);
+      if (!draggingRef.current || !e.latLng) return;
+      const point = { lat: e.latLng.lat(), lng: e.latLng.lng() };
+      const last = pathRef.current[pathRef.current.length - 1];
+      if (last && Math.abs(last.lat - point.lat) < MIN_POINT_DEGREES && Math.abs(last.lng - point.lng) < MIN_POINT_DEGREES) return;
+      pathRef.current = [...pathRef.current, point];
+      setPreviewPath(pathRef.current);
     });
-    const mouseup = map.addListener('mouseup', (e: google.maps.MapMouseEvent) => {
-      const start = startRef.current;
+    const mouseup = map.addListener('mouseup', () => {
       draggingRef.current = false;
-      startRef.current = null;
+      const path = pathRef.current;
+      pathRef.current = [];
       setPreviewPath(null);
-      if (!start || !e.latLng) return;
-      const end = { lat: e.latLng.lat(), lng: e.latLng.lng() };
-      if (Math.abs(start.lat - end.lat) < MIN_ROUTE_DRAG_DEGREES && Math.abs(start.lng - end.lng) < MIN_ROUTE_DRAG_DEGREES) return;
-      onDrawEnd(start, end);
+      if (path.length < 2) return;
+      const start = path[0];
+      const moved = path.some(
+        (p) => Math.abs(p.lat - start.lat) >= MIN_ROUTE_DRAG_DEGREES || Math.abs(p.lng - start.lng) >= MIN_ROUTE_DRAG_DEGREES
+      );
+      if (!moved) return;
+      onDrawEnd(path);
     });
 
     return () => {
@@ -200,11 +211,11 @@ export function MapView() {
     loadRoutes();
   }, [loadRoutes]);
 
-  const handleDrawEnd = useCallback((start: google.maps.LatLngLiteral, end: google.maps.LatLngLiteral) => {
+  const handleDrawEnd = useCallback((path: google.maps.LatLngLiteral[]) => {
     setDrawMode(false);
     setPopupLocationId(null);
     setRoutePopupId(null);
-    setRouteModalState({ startLat: start.lat, startLng: start.lng, endLat: end.lat, endLng: end.lng });
+    setRouteModalState({ path });
   }, []);
 
   const visibleLocations = useMemo(
@@ -463,7 +474,7 @@ export function MapView() {
           </button>
           <button
             onClick={handleToggleDrawMode}
-            title={drawMode ? '경로 그리기 취소' : '두 지점을 드래그해 경로 그리기'}
+            title={drawMode ? '경로 그리기 취소' : '자유곡선으로 경로 그리기'}
             className={`flex h-[34px] w-[34px] shrink-0 items-center justify-center rounded-xl border shadow-lg shadow-black/40 transition-colors ${
               drawMode
                 ? 'border-amber-400/50 bg-amber-400/15 text-amber-300'
@@ -476,7 +487,7 @@ export function MapView() {
 
         {drawMode && (
           <div className="mt-1.5 rounded-xl border border-amber-400/30 bg-amber-400/10 px-3 py-2 text-[12px] font-medium text-amber-200 shadow-lg shadow-black/40">
-            지도를 드래그해 A 지점에서 B 지점까지 선을 그어주세요.
+            지도를 자유롭게 드래그해 원하는 모양의 경로를 그려주세요.
           </div>
         )}
 
@@ -576,10 +587,14 @@ export function MapView() {
           {routes.map((route) => (
             <Polyline
               key={route.id}
-              path={[
-                { lat: route.start_lat, lng: route.start_lng },
-                { lat: route.end_lat, lng: route.end_lng },
-              ]}
+              path={
+                route.path && route.path.length >= 2
+                  ? route.path
+                  : [
+                      { lat: route.start_lat, lng: route.start_lng },
+                      { lat: route.end_lat, lng: route.end_lng },
+                    ]
+              }
               strokeColor={REGION_COLORS[route.region ?? '기타'].dot}
               strokeOpacity={0.85}
               strokeWeight={4}
@@ -705,10 +720,7 @@ export function MapView() {
       {routeModalState && (
         <RouteModal
           routeId={'routeId' in routeModalState ? routeModalState.routeId : undefined}
-          startLat={'startLat' in routeModalState ? routeModalState.startLat : undefined}
-          startLng={'startLng' in routeModalState ? routeModalState.startLng : undefined}
-          endLat={'endLat' in routeModalState ? routeModalState.endLat : undefined}
-          endLng={'endLng' in routeModalState ? routeModalState.endLng : undefined}
+          path={'path' in routeModalState ? routeModalState.path : undefined}
           onClose={() => setRouteModalState(null)}
           onSaved={() => loadRoutes()}
           onDeleted={() => {

@@ -19,7 +19,7 @@ import {
   TriangleAlert,
   X,
 } from 'lucide-react';
-import type { Book, HistoricalEvent } from '@/lib/types';
+import type { Book, HistoricalEvent, LatLng } from '@/lib/types';
 import type { BookSearchResult } from '@/lib/kakaoBooks';
 import { guessRegion, REGION_COLORS, REGIONS, type Region } from '@/lib/regions';
 import { EventModal } from '@/components/timeline/EventModal';
@@ -33,29 +33,27 @@ const inputClass =
 const labelClass = 'mb-1.5 flex items-center gap-1.5 text-[13px] font-medium text-zinc-300';
 
 interface RouteModalProps {
-  startLat?: number;
-  startLng?: number;
-  endLat?: number;
-  endLng?: number;
+  path?: LatLng[];
   routeId?: string;
   onClose: () => void;
   onSaved: () => void;
   onDeleted: () => void;
 }
 
-export function RouteModal({ startLat, startLng, endLat, endLng, routeId, onClose, onSaved, onDeleted }: RouteModalProps) {
+export function RouteModal({ path, routeId, onClose, onSaved, onDeleted }: RouteModalProps) {
+  const start = path?.[0];
+  const end = path && path.length > 0 ? path[path.length - 1] : undefined;
+
   const [id, setId] = useState<string | undefined>(routeId);
   const [name, setName] = useState('');
   const [info, setInfo] = useState('');
   const [region, setRegion] = useState<Region>(() =>
-    startLat != null && startLng != null && endLat != null && endLng != null
-      ? guessRegion((startLat + endLat) / 2, (startLng + endLng) / 2)
-      : '기타'
+    start != null && end != null ? guessRegion((start.lat + end.lat) / 2, (start.lng + end.lng) / 2) : '기타'
   );
-  const [sLat, setSLat] = useState<number | undefined>(startLat);
-  const [sLng, setSLng] = useState<number | undefined>(startLng);
-  const [eLat, setELat] = useState<number | undefined>(endLat);
-  const [eLng, setELng] = useState<number | undefined>(endLng);
+  const [sLat, setSLat] = useState<number | undefined>(start?.lat);
+  const [sLng, setSLng] = useState<number | undefined>(start?.lng);
+  const [eLat, setELat] = useState<number | undefined>(end?.lat);
+  const [eLng, setELng] = useState<number | undefined>(end?.lng);
   const [startName, setStartName] = useState('');
   const [endName, setEndName] = useState('');
   const [books, setBooks] = useState<Book[]>([]);
@@ -164,6 +162,7 @@ export function RouteModal({ startLat, startLng, endLat, endLng, routeId, onClos
             end_lat: eLat,
             end_lng: eLng,
             end_name: endName,
+            path,
           }),
         });
         if (!res.ok) throw new Error('저장에 실패했습니다.');

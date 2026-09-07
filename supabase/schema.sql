@@ -80,9 +80,12 @@ create table if not exists routes (
   end_lat double precision not null,
   end_lng double precision not null,
   end_name text not null default '', -- 도착 지점 이름 (선택, 자동/수동 입력)
+  path jsonb not null default '[]', -- 자유곡선 경로: [{lat,lng}, ...] (드래그하며 그린 실제 궤적)
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table routes add column if not exists path jsonb not null default '[]';
 
 create index if not exists routes_region_idx on routes(region);
 
