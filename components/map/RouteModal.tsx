@@ -1,8 +1,32 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { CheckCircle2, Globe2, Loader2, MapPin, Route as RouteIcon, Save, Sparkles, Trash2, TriangleAlert, X } from 'lucide-react';
+import {
+  BookOpen,
+  CalendarClock,
+  CheckCircle2,
+  Globe2,
+  Loader2,
+  MapPin,
+  Pencil,
+  Plus,
+  Route as RouteIcon,
+  Save,
+  ScrollText,
+  Search,
+  Sparkles,
+  Trash2,
+  TriangleAlert,
+  X,
+} from 'lucide-react';
+import type { Book, HistoricalEvent } from '@/lib/types';
+import type { BookSearchResult } from '@/lib/kakaoBooks';
 import { guessRegion, REGION_COLORS, REGIONS, type Region } from '@/lib/regions';
+import { EventModal } from '@/components/timeline/EventModal';
+
+function formatYear(year: number) {
+  return year < 0 ? `기원전 ${-year}` : `${year}`;
+}
 
 const inputClass =
   'w-full rounded-xl border border-white/[0.08] bg-black/30 px-3.5 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none transition-colors focus:border-accent/50 focus:ring-2 focus:ring-accent/20';
@@ -34,10 +58,18 @@ export function RouteModal({ startLat, startLng, endLat, endLng, routeId, onClos
   const [eLng, setELng] = useState<number | undefined>(endLng);
   const [startName, setStartName] = useState('');
   const [endName, setEndName] = useState('');
+  const [books, setBooks] = useState<Book[]>([]);
   const [loading, setLoading] = useState(!!routeId);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedToast, setSavedToast] = useState(false);
+
+  const [bookQuery, setBookQuery] = useState('');
+  const [bookResults, setBookResults] = useState<BookSearchResult[]>([]);
+  const [searchingBooks, setSearchingBooks] = useState(false);
+
+  const [events, setEvents] = useState<HistoricalEvent[]>([]);
+  const [eventModalState, setEventModalState] = useState<{ event?: HistoricalEvent } | null>(null);
 
   const backdropMouseDownRef = useRef(false);
 
@@ -56,9 +88,11 @@ export function RouteModal({ startLat, startLng, endLat, endLng, routeId, onClos
         setELng(data.end_lng);
         setStartName(data.start_name ?? '');
         setEndName(data.end_name ?? '');
+        setBooks(data.books ?? []);
       }
       setLoading(false);
     })();
+    refreshEvents(routeId);
   }, [routeId]);
 
   useEffect(() => {
@@ -80,11 +114,32 @@ export function RouteModal({ startLat, startLng, endLat, endLng, routeId, onClos
     })();
   }, [routeId, sLat, sLng, eLat, eLng]);
 
+  async function refreshBooks(currentId: string) {
+    const res = await fetch(`/api/routes/${currentId}`);
+    if (res.ok) {
+      const data = await res.json();
+      setBooks(data.books ?? []);
+    }
+  }
+
+  async function refreshEvents(currentId: string) {
+    const res = await fetch(`/api/events?routeId=${currentId}`);
+    if (res.ok) setEvents(await res.json());
+  }
+
+  async function handleDeleteEvent(eventId: string) {
+    if (!id) return;
+    if (!confirm('이 사건을 삭제할까요?')) return;
+    const res = await fetch(`/api/events/${eventId}`, { method: 'DELETE' });
+    if (res.ok) await refreshEvents(id);
+  }
+
   async function handleSave() {
     if (!name.trim()) {
       setError('경로 이름을 입력해주세요.');
       return;
     }
+    const wasExisting = Boolean(id);
     setSaving(true);
     setError(null);
     try {
@@ -116,8 +171,11 @@ export function RouteModal({ startLat, startLng, endLat, endLng, routeId, onClos
         setId(created.id);
       }
       onSaved();
-      setSavedToast(true);
-      setTimeout(onClose, 1100);
+      // 기존 경로 수정일 때만 저장 후 바로 닫음. 새 경로는 이어서 책/사건을 추가할 수 있도록 모달을 유지.
+      if (wasExisting) {
+        setSavedToast(true);
+        setTimeout(onClose, 1100);
+      }
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -127,9 +185,51 @@ export function RouteModal({ startLat, startLng, endLat, endLng, routeId, onClos
 
   async function handleDelete() {
     if (!id) return;
-    if (!confirm('이 경로를 삭제할까요?')) return;
+    if (!confirm('이 경로를 삭제할까요? 연결된 책도 함께 삭제됩니다.')) return;
     const res = await fetch(`/api/routes/${id}`, { method: 'DELETE' });
     if (res.ok) onDeleted();
+  }
+
+  async function handleSearchBooks() {
+    if (!bookQuery.trim()) return;
+    setSearchingBooks(true);
+    const res = await fetch(`/api/books/search-kakao?q=${encodeURIComponent(bookQuery)}`);
+    if (res.ok) setBookResults(await res.json());
+    setSearchingBooks(false);
+  }
+
+  async function handleAddBook(result: BookSearchResult) {
+    if (!id) return;
+    setError(null);
+    const res = await fetch(`/api/routes/${id}/books`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sourceId: result.sourceId,
+        title: result.title,
+        authors: result.authors,
+        thumbnailUrl: result.thumbnailUrl,
+        description: result.description,
+      }),
+    });
+    if (res.ok) {
+      await refreshBooks(id);
+    } else {
+      const body = await res.json().catch(() => null);
+      setError(body?.error ?? '책 추가에 실패했습니다.');
+    }
+  }
+
+  async function handleRemoveBook(bookId: string) {
+    if (!id) return;
+    setError(null);
+    const res = await fetch(`/api/books/${bookId}`, { method: 'DELETE' });
+    if (res.ok) {
+      await refreshBooks(id);
+    } else {
+      const body = await res.json().catch(() => null);
+      setError(body?.error ?? '책 삭제에 실패했습니다.');
+    }
   }
 
   return (
@@ -150,7 +250,7 @@ export function RouteModal({ startLat, startLng, endLat, endLng, routeId, onClos
         }}
       >
         <div
-          className="max-h-[85vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/[0.08] bg-surface shadow-2xl shadow-black/60"
+          className="max-h-[85vh] w-full max-w-xl overflow-y-auto rounded-2xl border border-white/[0.08] bg-surface shadow-2xl shadow-black/60"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="flex items-center justify-between gap-2 border-b border-white/[0.06] px-4 sm:px-6 py-4">
@@ -254,7 +354,7 @@ export function RouteModal({ startLat, startLng, endLat, endLng, routeId, onClos
                     className="flex items-center gap-1.5 rounded-xl bg-gradient-to-b from-accent to-accent-strong px-4 py-2 text-sm font-medium text-white shadow-lg shadow-accent/20 transition-opacity hover:opacity-90 disabled:opacity-50"
                   >
                     {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.25} /> : <Save className="h-3.5 w-3.5" strokeWidth={2.25} />}
-                    {saving ? '저장 중...' : '저장'}
+                    {saving ? '저장 중...' : id ? '저장' : '저장하고 책 추가하기'}
                   </button>
                   {id && (
                     <button
@@ -266,11 +366,163 @@ export function RouteModal({ startLat, startLng, endLat, endLng, routeId, onClos
                     </button>
                   )}
                 </div>
+
+                <div className="border-t border-white/[0.06] pt-5">
+                  <div className="mb-3 flex items-center justify-between gap-2">
+                    <h3 className="flex items-center gap-1.5 text-[13px] font-semibold text-zinc-200">
+                      <ScrollText className="h-4 w-4 text-gold" strokeWidth={2.25} />
+                      연표 사건 <span className="font-normal text-zinc-500">(연도별 역사)</span>
+                    </h3>
+                    <button
+                      onClick={() => setEventModalState({})}
+                      disabled={!id}
+                      className="flex shrink-0 items-center gap-1 rounded-lg border border-white/[0.08] px-2.5 py-1 text-xs font-medium text-zinc-300 transition-colors hover:bg-accent/20 hover:text-accent-strong disabled:opacity-40"
+                    >
+                      <Plus className="h-3 w-3" strokeWidth={2.5} />
+                      사건 추가
+                    </button>
+                  </div>
+                  {!id && (
+                    <p className="mb-3 text-xs text-zinc-500">
+                      경로를 먼저 저장하면 연도별 사건을 추가할 수 있어요. 여기서 추가한 사건은 연표 화면에도 그대로 반영됩니다.
+                    </p>
+                  )}
+                  {id && events.length === 0 ? (
+                    <p className="text-xs text-zinc-600">등록된 사건이 없습니다.</p>
+                  ) : (
+                    <ul className="space-y-1.5">
+                      {events.map((event) => (
+                        <li
+                          key={event.id}
+                          className="flex items-center gap-2.5 rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2 text-sm"
+                        >
+                          <span className="flex shrink-0 items-center gap-1 text-xs font-semibold text-gold">
+                            <CalendarClock className="h-3 w-3" strokeWidth={2.25} />
+                            {formatYear(event.year)}
+                          </span>
+                          <span className="min-w-0 flex-1 truncate text-zinc-200">{event.title}</span>
+                          <button
+                            onClick={() => setEventModalState({ event })}
+                            className="flex shrink-0 h-6 w-6 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-white/[0.08] hover:text-zinc-200"
+                          >
+                            <Pencil className="h-3.5 w-3.5" strokeWidth={2.25} />
+                          </button>
+                          <button
+                            onClick={() => handleDeleteEvent(event.id)}
+                            className="flex shrink-0 h-6 w-6 items-center justify-center rounded-lg text-red-400/70 transition-colors hover:bg-red-500/10 hover:text-red-400"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" strokeWidth={2.25} />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+
+                <div className="border-t border-white/[0.06] pt-5">
+                  <h3 className="mb-3 flex items-center gap-1.5 text-[13px] font-semibold text-zinc-200">
+                    <BookOpen className="h-4 w-4 text-emerald-400" strokeWidth={2.25} />
+                    관련 책 <span className="font-normal text-zinc-500">(카카오 도서)</span>
+                  </h3>
+                  {!id && <p className="mb-3 text-xs text-zinc-500">경로를 먼저 저장하면 책을 추가할 수 있어요.</p>}
+                  <div className="mb-3 flex gap-2">
+                    <div className="relative flex-1">
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-zinc-500" strokeWidth={2.25} />
+                      <input
+                        value={bookQuery}
+                        onChange={(e) => setBookQuery(e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && handleSearchBooks()}
+                        placeholder="책 제목 검색"
+                        disabled={!id}
+                        className={`${inputClass} py-2 pl-9 disabled:opacity-40`}
+                      />
+                    </div>
+                    <button
+                      onClick={handleSearchBooks}
+                      disabled={!id || searchingBooks}
+                      className="rounded-xl border border-white/[0.08] bg-white/[0.03] px-4 py-2 text-sm font-medium text-zinc-300 transition-colors hover:bg-white/[0.08] hover:text-zinc-50 disabled:opacity-40"
+                    >
+                      검색
+                    </button>
+                  </div>
+
+                  {bookResults.length > 0 && (
+                    <ul className="mb-4 max-h-48 space-y-1 overflow-y-auto rounded-xl border border-white/[0.06] bg-black/20 p-2">
+                      {bookResults.map((result) => (
+                        <li key={result.sourceId} className="flex items-center gap-2.5 rounded-lg px-1.5 py-1.5 text-sm transition-colors hover:bg-white/[0.04]">
+                          {result.thumbnailUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={result.thumbnailUrl} alt="" className="h-10 w-7 shrink-0 rounded-sm object-cover shadow-sm ring-1 ring-white/[0.08]" />
+                          ) : (
+                            <div className="flex h-10 w-7 shrink-0 items-center justify-center rounded-sm bg-white/[0.06]">
+                              <BookOpen className="h-3 w-3 text-zinc-600" strokeWidth={2} />
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium text-zinc-100">{result.title}</p>
+                            <p className="truncate text-xs text-zinc-500">{result.authors.join(', ') || '작가 정보 없음'}</p>
+                          </div>
+                          <button
+                            onClick={() => handleAddBook(result)}
+                            className="flex shrink-0 items-center gap-1 rounded-lg border border-white/[0.08] px-2 py-1 text-xs font-medium text-zinc-300 transition-colors hover:bg-accent/20 hover:text-accent-strong"
+                          >
+                            <Plus className="h-3 w-3" strokeWidth={2.5} />
+                            추가
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+
+                  <h4 className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">이 경로에 등록된 책</h4>
+                  {books.length === 0 ? (
+                    <p className="text-xs text-zinc-600">등록된 책이 없습니다.</p>
+                  ) : (
+                    <ul className="space-y-2">
+                      {books.map((book) => (
+                        <li key={book.id} className="flex items-center gap-2.5 text-sm">
+                          {book.thumbnail_url ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={book.thumbnail_url} alt="" className="h-10 w-7 shrink-0 rounded-sm object-cover shadow-sm ring-1 ring-white/[0.08]" />
+                          ) : (
+                            <div className="flex h-10 w-7 shrink-0 items-center justify-center rounded-sm bg-white/[0.06]">
+                              <BookOpen className="h-3 w-3 text-zinc-600" strokeWidth={2} />
+                            </div>
+                          )}
+                          <div className="min-w-0 flex-1">
+                            <p className="truncate font-medium text-zinc-100">{book.title}</p>
+                            <p className="truncate text-xs text-zinc-500">
+                              {(book.authors ?? []).map((a) => a.name).join(', ') || '작가 정보 없음'}
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleRemoveBook(book.id)}
+                            className="flex shrink-0 h-7 w-7 items-center justify-center rounded-lg text-red-400/70 transition-colors hover:bg-red-500/10 hover:text-red-400"
+                          >
+                            <Trash2 className="h-3.5 w-3.5" strokeWidth={2.25} />
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {eventModalState && id && (
+        <EventModal
+          event={eventModalState.event}
+          defaultRouteId={id}
+          onClose={() => setEventModalState(null)}
+          onSaved={() => {
+            setEventModalState(null);
+            refreshEvents(id);
+          }}
+        />
+      )}
     </>
   );
 }

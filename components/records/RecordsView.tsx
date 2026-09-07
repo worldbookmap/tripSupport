@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
-import { BookOpen, Building2, Coffee, Globe2, LayoutGrid, Loader2, MapPin, Search, UtensilsCrossed } from 'lucide-react';
+import { BookOpen, Building2, Coffee, Globe2, LayoutGrid, Loader2, MapPin, Route as RouteIcon, Search, UtensilsCrossed } from 'lucide-react';
 import type { BookRecord, Location } from '@/lib/types';
 import { REGION_COLORS } from '@/lib/regions';
 import { CATEGORIES, CATEGORY_COLORS, CATEGORY_HAS_HISTORY, CATEGORY_LABELS, type Category } from '@/lib/category';
@@ -46,7 +46,8 @@ function matchesBook(book: BookRecord, term: string) {
     book.title.toLowerCase().includes(term) ||
     book.description.toLowerCase().includes(term) ||
     book.authors.some((a) => a.name.toLowerCase().includes(term)) ||
-    (book.location?.name.toLowerCase().includes(term) ?? false)
+    (book.location?.name.toLowerCase().includes(term) ?? false) ||
+    (book.route?.name.toLowerCase().includes(term) ?? false)
   );
 }
 
@@ -118,6 +119,12 @@ function BookCard({ book }: { book: BookRecord }) {
             <MapPin className="h-3 w-3" strokeWidth={2.25} />
             {book.location.name}
           </Link>
+        )}
+        {book.route && (
+          <span className="mt-1 inline-flex items-center gap-1 text-[11px] font-medium text-accent-strong">
+            <RouteIcon className="h-3 w-3" strokeWidth={2.25} />
+            {book.route.name}
+          </span>
         )}
       </div>
     </div>

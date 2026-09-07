@@ -31,7 +31,8 @@ export interface Book {
   title: string;
   thumbnail_url: string | null;
   description: string;
-  location_id: string;
+  location_id: string | null;
+  route_id: string | null;
   created_at: string;
   authors?: Author[];
 }
@@ -43,6 +44,7 @@ export interface LocationDetail extends Location {
 export interface BookRecord extends Book {
   authors: Author[];
   location: Pick<Location, 'id' | 'name' | 'country' | 'city'> | null;
+  route: Pick<RouteRecord, 'id' | 'name'> | null;
 }
 
 export interface HistoricalEvent {
@@ -51,6 +53,7 @@ export interface HistoricalEvent {
   title: string;
   description: string;
   location_id: string | null;
+  route_id: string | null;
   created_at: string;
 }
 
@@ -67,6 +70,10 @@ export interface RouteRecord {
   end_name: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface RouteDetail extends RouteRecord {
+  books: Book[];
 }
 
 export interface MindmapNode {

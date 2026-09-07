@@ -17,7 +17,7 @@ export async function PATCH(request: NextRequest, { params }: Params) {
   if (!body) return NextResponse.json({ error: '잘못된 요청입니다.' }, { status: 400 });
 
   const updates: Record<string, unknown> = {};
-  for (const key of ['year', 'title', 'description', 'location_id'] as const) {
+  for (const key of ['year', 'title', 'description', 'location_id', 'route_id'] as const) {
     if (key in body) updates[key] = body[key];
   }
 

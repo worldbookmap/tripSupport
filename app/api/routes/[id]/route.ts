@@ -1,14 +1,24 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { supabase } from '@/lib/supabase';
+import { normalizeBookAuthors } from '@/lib/books';
 
 type Params = { params: Promise<{ id: string }> };
 
 export async function GET(_request: NextRequest, { params }: Params) {
   const { id } = await params;
-  const { data, error } = await supabase.from('routes').select('*').eq('id', id).single();
-  if (error) return NextResponse.json({ error: error.message }, { status: 404 });
-  return NextResponse.json(data);
+
+  const [{ data: route, error: routeError }, { data: books, error: booksError }] = await Promise.all([
+    supabase.from('routes').select('*').eq('id', id).single(),
+    supabase.from('books').select('*, book_authors(author:authors(*))').eq('route_id', id),
+  ]);
+
+  if (routeError) return NextResponse.json({ error: routeError.message }, { status: 404 });
+  if (booksError) return NextResponse.json({ error: booksError.message }, { status: 500 });
+
+  const normalizedBooks = (books ?? []).map((book) => normalizeBookAuthors(book));
+
+  return NextResponse.json({ ...route, books: normalizedBooks });
 }
 
 export async function PATCH(request: NextRequest, { params }: Params) {

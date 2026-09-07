@@ -85,3 +85,10 @@ create table if not exists routes (
 );
 
 create index if not exists routes_region_idx on routes(region);
+
+-- 경로에도 관련 책/연표 사건을 연결할 수 있도록 (지역과 동일한 방식)
+alter table books add column if not exists route_id uuid references routes(id) on delete cascade;
+alter table historical_events add column if not exists route_id uuid references routes(id) on delete set null;
+
+create index if not exists books_route_id_idx on books(route_id);
+create index if not exists historical_events_route_id_idx on historical_events(route_id);

@@ -16,7 +16,7 @@ import {
   ZoomIn,
   ZoomOut,
 } from 'lucide-react';
-import type { HistoricalEvent, Location } from '@/lib/types';
+import type { HistoricalEvent, Location, RouteRecord } from '@/lib/types';
 import { REGION_COLORS, REGIONS, type Region } from '@/lib/regions';
 import { EventModal } from './EventModal';
 
@@ -65,6 +65,7 @@ export function Timeline() {
 
   const [events, setEvents] = useState<HistoricalEvent[]>([]);
   const [locations, setLocations] = useState<Location[]>([]);
+  const [routes, setRoutes] = useState<RouteRecord[]>([]);
   const [search, setSearch] = useState('');
   const [modalState, setModalState] = useState<{ event?: HistoricalEvent } | null>(null);
   const [zoom, setZoom] = useState(1);
@@ -85,17 +86,23 @@ export function Timeline() {
     fetch('/api/locations')
       .then((res) => (res.ok ? res.json() : []))
       .then(setLocations);
+    fetch('/api/routes')
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setRoutes);
   }, []);
 
   const locationById = useMemo(() => new Map(locations.map((loc) => [loc.id, loc])), [locations]);
+  const routeById = useMemo(() => new Map(routes.map((route) => [route.id, route])), [routes]);
 
   const laneKeyOf = useMemo(
     () => (event: HistoricalEvent) => {
       const loc = event.location_id ? locationById.get(event.location_id) : undefined;
-      if (!loc) return { continent: UNCLASSIFIED_CONTINENT, country: NO_LOCATION_COUNTRY };
-      return { continent: loc.region || '기타', country: loc.country?.trim() || UNCLASSIFIED_COUNTRY };
+      if (loc) return { continent: loc.region || '기타', country: loc.country?.trim() || UNCLASSIFIED_COUNTRY };
+      const route = event.route_id ? routeById.get(event.route_id) : undefined;
+      if (route) return { continent: route.region || '기타', country: `경로 · ${route.name}` };
+      return { continent: UNCLASSIFIED_CONTINENT, country: NO_LOCATION_COUNTRY };
     },
-    [locationById]
+    [locationById, routeById]
   );
 
   const groups: ContinentGroup[] = useMemo(() => {

@@ -5,16 +5,17 @@ import { normalizeBookAuthors } from '@/lib/books';
 export async function GET() {
   const { data, error } = await supabase
     .from('books')
-    .select('*, book_authors(author:authors(*)), locations(id, name, country, city)')
+    .select('*, book_authors(author:authors(*)), locations(id, name, country, city), routes(id, name)')
     .order('created_at', { ascending: false });
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   const normalized = (data ?? []).map((book) => {
-    const { locations: location, ...rest } = book as typeof book & {
+    const { locations: location, routes: route, ...rest } = book as typeof book & {
       locations: { id: string; name: string; country: string; city: string } | null;
+      routes: { id: string; name: string } | null;
     };
-    return { ...normalizeBookAuthors(rest), location };
+    return { ...normalizeBookAuthors(rest), location, route };
   });
 
   return NextResponse.json(normalized);

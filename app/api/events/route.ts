@@ -5,10 +5,12 @@ import { sanitizeSearchTerm } from '@/lib/search';
 
 export async function GET(request: NextRequest) {
   const locationId = request.nextUrl.searchParams.get('locationId');
+  const routeId = request.nextUrl.searchParams.get('routeId');
   const q = request.nextUrl.searchParams.get('q')?.trim();
 
   let query = supabase.from('historical_events').select('*').order('year', { ascending: true });
   if (locationId) query = query.eq('location_id', locationId);
+  if (routeId) query = query.eq('route_id', routeId);
   if (q) {
     const term = sanitizeSearchTerm(q);
     query = query.or(`title.ilike.%${term}%,description.ilike.%${term}%`);
@@ -21,7 +23,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => null);
-  const { year, title, description, location_id } = body ?? {};
+  const { year, title, description, location_id, route_id } = body ?? {};
 
   if (typeof year !== 'number' || typeof title !== 'string' || !title.trim()) {
     return NextResponse.json({ error: 'year, title은 필수입니다.' }, { status: 400 });
@@ -29,7 +31,13 @@ export async function POST(request: NextRequest) {
 
   const { data, error } = await supabase
     .from('historical_events')
-    .insert({ year, title, description: description ?? '', location_id: location_id ?? null })
+    .insert({
+      year,
+      title,
+      description: description ?? '',
+      location_id: location_id ?? null,
+      route_id: route_id ?? null,
+    })
     .select()
     .single();
 

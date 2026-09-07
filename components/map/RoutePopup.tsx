@@ -1,9 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { ExternalLink, MapPin, Pencil, Route as RouteIcon, Sparkles, Trash2, X } from 'lucide-react';
-import type { RouteRecord } from '@/lib/types';
+import { BookOpen, CalendarClock, ExternalLink, MapPin, Pencil, Route as RouteIcon, ScrollText, Sparkles, Trash2, X } from 'lucide-react';
+import type { HistoricalEvent, RouteDetail } from '@/lib/types';
 import { REGION_COLORS } from '@/lib/regions';
+
+function formatYear(year: number) {
+  return year < 0 ? `기원전 ${-year}` : `${year}`;
+}
 
 interface RoutePopupProps {
   routeId: string;
@@ -13,16 +17,21 @@ interface RoutePopupProps {
 }
 
 export function RoutePopup({ routeId, onClose, onEdit, onDeleted }: RoutePopupProps) {
-  const [route, setRoute] = useState<RouteRecord | null>(null);
+  const [route, setRoute] = useState<RouteDetail | null>(null);
+  const [events, setEvents] = useState<HistoricalEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
     setRoute(null);
+    setEvents([]);
     fetch(`/api/routes/${routeId}`)
       .then((res) => (res.ok ? res.json() : null))
       .then(setRoute)
       .finally(() => setLoading(false));
+    fetch(`/api/events?routeId=${routeId}`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setEvents);
   }, [routeId]);
 
   async function handleDelete() {
@@ -84,6 +93,61 @@ export function RoutePopup({ routeId, onClose, onEdit, onDeleted }: RoutePopupPr
               <p className="whitespace-pre-wrap leading-relaxed text-zinc-300">{route.info}</p>
             </div>
           )}
+
+          {events.length > 0 && (
+            <div>
+              <h4 className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+                <ScrollText className="h-3.5 w-3.5 text-gold" strokeWidth={2.25} />
+                연표
+              </h4>
+              <ul className="space-y-1.5">
+                {events.map((event) => (
+                  <li key={event.id} className="flex items-start gap-2">
+                    <span className="mt-0.5 flex shrink-0 items-center gap-1 text-xs font-semibold text-gold">
+                      <CalendarClock className="h-3 w-3" strokeWidth={2.25} />
+                      {formatYear(event.year)}
+                    </span>
+                    <span className="min-w-0 flex-1 text-zinc-300">{event.title}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div>
+            <h4 className="mb-1.5 flex items-center gap-1.5 text-[11px] font-semibold uppercase tracking-wide text-zinc-500">
+              <BookOpen className="h-3.5 w-3.5 text-emerald-400" strokeWidth={2.25} />
+              관련 책
+            </h4>
+            {route.books.length === 0 ? (
+              <p className="text-zinc-600">등록된 책이 없습니다.</p>
+            ) : (
+              <ul className="space-y-2.5">
+                {route.books.map((book) => (
+                  <li key={book.id} className="flex items-center gap-2.5">
+                    {book.thumbnail_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={book.thumbnail_url}
+                        alt=""
+                        className="h-11 w-8 shrink-0 rounded-sm object-cover shadow-md shadow-black/40 ring-1 ring-white/[0.08]"
+                      />
+                    ) : (
+                      <div className="flex h-11 w-8 shrink-0 items-center justify-center rounded-sm bg-white/[0.06] ring-1 ring-white/[0.08]">
+                        <BookOpen className="h-3.5 w-3.5 text-zinc-600" strokeWidth={2} />
+                      </div>
+                    )}
+                    <div className="min-w-0">
+                      <p className="truncate font-medium text-zinc-100">{book.title}</p>
+                      <p className="truncate text-xs text-zinc-500">
+                        {(book.authors ?? []).map((a) => a.name).join(', ') || '작가 정보 없음'}
+                      </p>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
 
           <div className="flex flex-wrap gap-2 border-t border-white/[0.06] pt-3.5">
             <a
