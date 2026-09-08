@@ -410,6 +410,11 @@ export function MapView() {
     const prevLat = loc.lat;
     const prevLng = loc.lng;
 
+    if (!window.confirm('정말 이동하시겠습니까?')) {
+      setLocations((current) => current.map((l) => (l.id === loc.id ? { ...l, lat: prevLat, lng: prevLng } : l)));
+      return;
+    }
+
     setLocations((current) => current.map((l) => (l.id === loc.id ? { ...l, lat, lng } : l)));
 
     try {
