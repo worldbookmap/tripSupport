@@ -12,6 +12,7 @@ import {
   MapPinPlus,
   Route as RouteIcon,
   Search,
+  Star,
   UtensilsCrossed,
   XCircle,
 } from 'lucide-react';
@@ -500,7 +501,7 @@ export function MapView() {
           {PIN_FILTERS.map((f) => {
             const active = pinFilter === f.id;
             const colors = f.id === 'all' ? null : CATEGORY_COLORS[f.id];
-            const Icon = f.id === 'all' ? LayoutGrid : f.id === 'food' ? UtensilsCrossed : f.id === 'cafe' ? Coffee : MapPin;
+            const Icon = f.id === 'all' ? LayoutGrid : f.id === 'food' ? UtensilsCrossed : f.id === 'cafe' ? Coffee : Star;
             return (
               <button
                 key={f.id}
