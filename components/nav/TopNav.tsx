@@ -2,7 +2,8 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { Compass, History, Library, Map, Waypoints } from 'lucide-react';
+import { useState } from 'react';
+import { Compass, Download, History, Library, Loader2, Map, Waypoints } from 'lucide-react';
 
 const TABS = [
   { href: '/map', label: '지도', icon: Map },
@@ -13,7 +14,30 @@ const TABS = [
 
 export function TopNav() {
   const pathname = usePathname();
+  const [exporting, setExporting] = useState(false);
   if (pathname === '/login') return null;
+
+  async function handleExport() {
+    setExporting(true);
+    try {
+      const res = await fetch('/api/export');
+      if (!res.ok) throw new Error('export failed');
+      const data = await res.json();
+      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `여행기록_${new Date().toISOString().slice(0, 10)}.json`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {
+      window.alert('데이터를 내보내지 못했습니다.');
+    } finally {
+      setExporting(false);
+    }
+  }
 
   return (
     <header className="sticky top-0 z-[3000] flex items-center justify-between gap-2 border-b border-white/[0.06] bg-background/80 px-3 py-2.5 backdrop-blur-xl sm:px-5 sm:py-3 print:hidden">
@@ -26,26 +50,40 @@ export function TopNav() {
         </span>
       </Link>
 
-      <nav className="flex shrink-0 items-center gap-0.5 rounded-full border border-white/[0.06] bg-white/[0.03] p-1 sm:gap-1">
-        {TABS.map((tab) => {
-          const active = pathname?.startsWith(tab.href);
-          const Icon = tab.icon;
-          return (
-            <Link
-              key={tab.href}
-              href={tab.href}
-              className={`flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[13px] font-medium transition-all duration-200 sm:px-3.5 ${
-                active
-                  ? 'bg-white/[0.08] text-zinc-50 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]'
-                  : 'text-zinc-500 hover:text-zinc-200'
-              }`}
-            >
-              <Icon className="h-3.5 w-3.5" strokeWidth={2.25} />
-              <span className="hidden sm:inline">{tab.label}</span>
-            </Link>
-          );
-        })}
-      </nav>
+      <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
+        <nav className="flex shrink-0 items-center gap-0.5 rounded-full border border-white/[0.06] bg-white/[0.03] p-1 sm:gap-1">
+          {TABS.map((tab) => {
+            const active = pathname?.startsWith(tab.href);
+            const Icon = tab.icon;
+            return (
+              <Link
+                key={tab.href}
+                href={tab.href}
+                className={`flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-[13px] font-medium transition-all duration-200 sm:px-3.5 ${
+                  active
+                    ? 'bg-white/[0.08] text-zinc-50 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.08)]'
+                    : 'text-zinc-500 hover:text-zinc-200'
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" strokeWidth={2.25} />
+                <span className="hidden sm:inline">{tab.label}</span>
+              </Link>
+            );
+          })}
+        </nav>
+        <button
+          onClick={handleExport}
+          disabled={exporting}
+          title="전체 데이터를 JSON 파일로 내보내기"
+          className="flex h-[30px] w-[30px] shrink-0 items-center justify-center rounded-full border border-white/[0.06] bg-white/[0.03] text-zinc-400 transition-colors hover:text-zinc-200 disabled:opacity-50 sm:h-8 sm:w-8"
+        >
+          {exporting ? (
+            <Loader2 className="h-3.5 w-3.5 animate-spin" strokeWidth={2.25} />
+          ) : (
+            <Download className="h-3.5 w-3.5" strokeWidth={2.25} />
+          )}
+        </button>
+      </div>
     </header>
   );
 }
