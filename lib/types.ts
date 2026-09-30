@@ -16,6 +16,7 @@ export interface Location {
   address: string;
   created_at: string;
   updated_at: string;
+  visit_count?: number; // 목록 API(/api/locations)에서만 채워짐
 }
 
 export interface Author {

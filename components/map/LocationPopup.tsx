@@ -17,11 +17,19 @@ interface LocationPopupProps {
   onClose: () => void;
   onEdit: (id: string) => void;
   onDeleted: () => void;
+  onVisitsChanged?: () => void;
   // 'floating': 지도 위에 떠 있는 코너 패널(기본값). 'modal': 배경을 덮는 중앙 다이얼로그(기록 페이지 등 지도가 없는 곳에서 사용).
   presentation?: 'floating' | 'modal';
 }
 
-export function LocationPopup({ locationId, onClose, onEdit, onDeleted, presentation = 'floating' }: LocationPopupProps) {
+export function LocationPopup({
+  locationId,
+  onClose,
+  onEdit,
+  onDeleted,
+  onVisitsChanged,
+  presentation = 'floating',
+}: LocationPopupProps) {
   const router = useRouter();
   const [detail, setDetail] = useState<LocationDetail | null>(null);
   const [events, setEvents] = useState<HistoricalEvent[]>([]);
@@ -128,7 +136,14 @@ export function LocationPopup({ locationId, onClose, onEdit, onDeleted, presenta
       )}
 
       {!loading && detail && tab === 'visits' && (
-        <VisitsTab locationId={locationId} visits={visits} onChanged={loadVisits} />
+        <VisitsTab
+          locationId={locationId}
+          visits={visits}
+          onChanged={() => {
+            loadVisits();
+            onVisitsChanged?.();
+          }}
+        />
       )}
 
       {!loading && detail && tab === 'info' && (

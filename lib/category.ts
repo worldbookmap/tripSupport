@@ -45,8 +45,9 @@ function fillGlyph(color: string, d: string): string {
 
 // 핀 본체(말풍선 모양, viewBox 32x40)는 카테고리 색으로 채우고, 꼭짓점이 정확히 좌표를 가리키도록
 // svg width/height를 명시해 기본 마커 앵커(이미지 하단 중앙)와 맞춥니다. 글리프는 머리 부분 원 안에 배치합니다.
-function buildPinIcon(color: string, glyph: string): string {
-  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="32" height="40" viewBox="0 0 32 40">
+// scale은 viewBox는 그대로 두고 렌더 크기만 키웁니다 (방문 기록이 있는 핀 강조용).
+function buildPinIcon(color: string, glyph: string, scale = 1): string {
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${32 * scale}" height="${40 * scale}" viewBox="0 0 32 40">
 <path d="M16 40C16 40 2 22.2 2 14C2 6.268 8.268 0 16 0C23.732 0 30 6.268 30 14C30 22.2 16 40 16 40Z" fill="${color}" stroke="#ffffff" stroke-width="1.5"/>
 <circle cx="16" cy="14" r="9" fill="#ffffff"/>
 <g transform="translate(9.5 7.5) scale(0.5417)">${glyph}</g>
@@ -54,10 +55,23 @@ function buildPinIcon(color: string, glyph: string): string {
   return `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`;
 }
 
+const CATEGORY_GLYPH: Record<Category, string> = {
+  general: fillGlyph(CATEGORY_COLORS.general.dot, STAR_PATH),
+  food: strokeGlyph(CATEGORY_COLORS.food.dot, UTENSILS_CROSSED_PATHS),
+  cafe: strokeGlyph(CATEGORY_COLORS.cafe.dot, COFFEE_PATHS),
+};
+
 export const CATEGORY_MARKER_ICON: Record<Category, string> = {
-  general: buildPinIcon(CATEGORY_COLORS.general.dot, fillGlyph(CATEGORY_COLORS.general.dot, STAR_PATH)),
-  food: buildPinIcon(CATEGORY_COLORS.food.dot, strokeGlyph(CATEGORY_COLORS.food.dot, UTENSILS_CROSSED_PATHS)),
-  cafe: buildPinIcon(CATEGORY_COLORS.cafe.dot, strokeGlyph(CATEGORY_COLORS.cafe.dot, COFFEE_PATHS)),
+  general: buildPinIcon(CATEGORY_COLORS.general.dot, CATEGORY_GLYPH.general),
+  food: buildPinIcon(CATEGORY_COLORS.food.dot, CATEGORY_GLYPH.food),
+  cafe: buildPinIcon(CATEGORY_COLORS.cafe.dot, CATEGORY_GLYPH.cafe),
+};
+
+// 방문 기록이 있는 지역의 핀은 1.4배 크게 표시합니다.
+export const CATEGORY_MARKER_ICON_VISITED: Record<Category, string> = {
+  general: buildPinIcon(CATEGORY_COLORS.general.dot, CATEGORY_GLYPH.general, 1.4),
+  food: buildPinIcon(CATEGORY_COLORS.food.dot, CATEGORY_GLYPH.food, 1.4),
+  cafe: buildPinIcon(CATEGORY_COLORS.cafe.dot, CATEGORY_GLYPH.cafe, 1.4),
 };
 
 // 음식/카페는 맛집·카페 목록 성격이라 "역사" 항목이 필요 없어 폼/상세에서 숨깁니다.

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { APIProvider, Map as GoogleMap, Marker, Polyline, RenderingType, useMap } from '@vis.gl/react-google-maps';
 import {
+  Camera,
   CheckCircle2,
   Coffee,
   LayoutGrid,
@@ -18,7 +19,7 @@ import {
 } from 'lucide-react';
 import type { Location, RouteRecord } from '@/lib/types';
 import type { PlaceSearchResult } from '@/lib/geocode';
-import { CATEGORIES, CATEGORY_COLORS, CATEGORY_LABELS, CATEGORY_MARKER_ICON, type Category } from '@/lib/category';
+import { CATEGORIES, CATEGORY_COLORS, CATEGORY_LABELS, CATEGORY_MARKER_ICON, CATEGORY_MARKER_ICON_VISITED, type Category } from '@/lib/category';
 import { REGION_COLORS } from '@/lib/regions';
 import { LocationModal } from './LocationModal';
 import { LocationPopup } from './LocationPopup';
@@ -154,6 +155,7 @@ export function MapView() {
   const [moveToast, setMoveToast] = useState<'success' | 'error' | null>(null);
   const [placeLoading, setPlaceLoading] = useState(false);
   const [pinFilter, setPinFilter] = useState<PinFilter>('all');
+  const [visitedOnly, setVisitedOnly] = useState(false);
   const [myLocation, setMyLocation] = useState<{ lat: number; lng: number } | null>(null);
   const [locating, setLocating] = useState(false);
   const [locateError, setLocateError] = useState<string | null>(null);
@@ -220,8 +222,12 @@ export function MapView() {
   }, []);
 
   const visibleLocations = useMemo(
-    () => (pinFilter === 'all' ? locations : locations.filter((loc) => (loc.category ?? 'general') === pinFilter)),
-    [locations, pinFilter]
+    () =>
+      locations.filter(
+        (loc) =>
+          (pinFilter === 'all' || (loc.category ?? 'general') === pinFilter) && (!visitedOnly || (loc.visit_count ?? 0) > 0)
+      ),
+    [locations, pinFilter, visitedOnly]
   );
 
   const searchMatches = useMemo(() => {
@@ -497,7 +503,7 @@ export function MapView() {
           </div>
         )}
 
-        <div className="mt-1.5 flex gap-1.5">
+        <div className="mt-1.5 flex flex-wrap gap-1.5">
           {PIN_FILTERS.map((f) => {
             const active = pinFilter === f.id;
             const colors = f.id === 'all' ? null : CATEGORY_COLORS[f.id];
@@ -507,7 +513,7 @@ export function MapView() {
                 key={f.id}
                 onClick={() => setPinFilter(f.id)}
                 title={`${f.label} 핀만 보기`}
-                className={`flex items-center gap-1.5 rounded-xl border bg-surface px-2.5 py-1.5 text-[12px] font-medium shadow-lg shadow-black/40 transition-colors ${
+                className={`flex items-center gap-1.5 whitespace-nowrap rounded-xl border bg-surface px-2.5 py-1.5 text-[12px] font-medium shadow-lg shadow-black/40 transition-colors ${
                   active && !colors ? 'border-accent/50 text-accent-strong' : !active ? 'border-white/[0.08] text-zinc-400 hover:text-zinc-200' : ''
                 }`}
                 style={active && colors ? { borderColor: colors.border, background: colors.bg, color: colors.text } : undefined}
@@ -517,6 +523,19 @@ export function MapView() {
               </button>
             );
           })}
+          <button
+            onClick={() => setVisitedOnly((v) => !v)}
+            title="방문 기록이 있는 핀만 보기"
+            aria-pressed={visitedOnly}
+            className={`flex items-center gap-1.5 whitespace-nowrap rounded-xl border px-2.5 py-1.5 text-[12px] font-medium shadow-lg shadow-black/40 transition-colors ${
+              visitedOnly
+                ? 'border-emerald-400/50 bg-surface text-emerald-300'
+                : 'border-white/[0.08] bg-surface text-zinc-400 hover:text-zinc-200'
+            }`}
+          >
+            <Camera className="h-3.5 w-3.5" strokeWidth={2.25} />
+            방문한 곳
+          </button>
         </div>
 
         {search.trim() !== '' && (
@@ -614,7 +633,8 @@ export function MapView() {
             <Marker
               key={loc.id}
               position={{ lat: loc.lat, lng: loc.lng }}
-              icon={CATEGORY_MARKER_ICON[loc.category ?? 'general']}
+              icon={((loc.visit_count ?? 0) > 0 ? CATEGORY_MARKER_ICON_VISITED : CATEGORY_MARKER_ICON)[loc.category ?? 'general']}
+              zIndex={(loc.visit_count ?? 0) > 0 ? 2 : 1}
               draggable={!drawMode}
               title={loc.name}
               onClick={() => handleMarkerClick(loc)}
@@ -720,6 +740,7 @@ export function MapView() {
             loadLocations();
             setPopupLocationId(null);
           }}
+          onVisitsChanged={loadLocations}
         />
       )}
 

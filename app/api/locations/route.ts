@@ -8,7 +8,7 @@ import { isCategory } from '@/lib/category';
 export async function GET(request: NextRequest) {
   const q = request.nextUrl.searchParams.get('q')?.trim();
 
-  let query = supabase.from('locations').select('*').order('created_at', { ascending: false });
+  let query = supabase.from('locations').select('*, visits(count)').order('created_at', { ascending: false });
   if (q) {
     const term = sanitizeSearchTerm(q);
     query = query.or(`name.ilike.%${term}%,history.ilike.%${term}%,tourist_info.ilike.%${term}%,address.ilike.%${term}%`);
@@ -16,7 +16,12 @@ export async function GET(request: NextRequest) {
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
-  return NextResponse.json(data);
+  return NextResponse.json(
+    (data ?? []).map(({ visits, ...location }) => ({
+      ...location,
+      visit_count: (visits as { count: number }[] | null)?.[0]?.count ?? 0,
+    }))
+  );
 }
 
 export async function POST(request: NextRequest) {
