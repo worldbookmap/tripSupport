@@ -95,3 +95,21 @@ alter table historical_events add column if not exists route_id uuid references 
 
 create index if not exists books_route_id_idx on books(route_id);
 create index if not exists historical_events_route_id_idx on historical_events(route_id);
+
+-- 실제로 방문한 기록: 지역 하나에 여러 번 방문 가능. 사진은 Storage의 visit-photos 버킷에 저장하고 경로만 보관.
+create table if not exists visits (
+  id uuid primary key default gen_random_uuid(),
+  location_id uuid not null references locations(id) on delete cascade,
+  visited_on date, -- 방문 날짜 (선택)
+  memo text not null default '',
+  photos jsonb not null default '[]', -- Storage 객체 경로 배열: ["<visit_id>/<uuid>.jpg", ...]
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create index if not exists visits_location_id_idx on visits(location_id);
+
+-- 방문 사진 저장용 비공개 버킷 (서버에서 서명된 URL로만 노출)
+insert into storage.buckets (id, name, public)
+values ('visit-photos', 'visit-photos', false)
+on conflict (id) do nothing;

@@ -93,3 +93,18 @@ export interface MindmapEdge {
   source: string;
   target: string;
 }
+
+export interface VisitPhoto {
+  path: string;
+  url: string; // 서명된 임시 URL
+}
+
+export interface Visit {
+  id: string;
+  location_id: string;
+  visited_on: string | null; // YYYY-MM-DD
+  memo: string;
+  photos: VisitPhoto[];
+  created_at: string;
+  updated_at: string;
+}

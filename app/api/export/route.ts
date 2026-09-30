@@ -6,12 +6,13 @@ import type { Author, Book } from '@/lib/types';
 type BookRow = Book & { book_authors: { author: Author }[] };
 
 export async function GET() {
-  const [locationsRes, routesRes, booksRes, authorsRes, eventsRes] = await Promise.all([
+  const [locationsRes, routesRes, booksRes, authorsRes, eventsRes, visitsRes] = await Promise.all([
     supabase.from('locations').select('*').order('created_at', { ascending: false }),
     supabase.from('routes').select('*').order('created_at', { ascending: false }),
     supabase.from('books').select('*, book_authors(author:authors(*))').order('created_at', { ascending: false }),
     supabase.from('authors').select('*').order('name', { ascending: true }),
     supabase.from('historical_events').select('*').order('year', { ascending: true }),
+    supabase.from('visits').select('*').order('visited_on', { ascending: false }),
   ]);
 
   const error =
@@ -19,7 +20,8 @@ export async function GET() {
     routesRes.error?.message ??
     booksRes.error?.message ??
     authorsRes.error?.message ??
-    eventsRes.error?.message;
+    eventsRes.error?.message ??
+    visitsRes.error?.message;
   if (error) return NextResponse.json({ error }, { status: 500 });
 
   const books = ((booksRes.data ?? []) as BookRow[]).map((book) => normalizeBookAuthors(book));
@@ -31,5 +33,6 @@ export async function GET() {
     books,
     authors: authorsRes.data,
     historical_events: eventsRes.data,
+    visits: visitsRes.data, // photos는 Storage(visit-photos 버킷) 경로
   });
 }

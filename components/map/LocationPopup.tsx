@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { BookOpen, CalendarClock, ExternalLink, History, Landmark, MapPin, Pencil, ScrollText, Trash2, X } from 'lucide-react';
-import type { HistoricalEvent, LocationDetail } from '@/lib/types';
+import { BookOpen, CalendarClock, Camera, ExternalLink, History, Info, Landmark, MapPin, Pencil, ScrollText, Trash2, X } from 'lucide-react';
+import type { HistoricalEvent, LocationDetail, Visit } from '@/lib/types';
 import { REGION_COLORS } from '@/lib/regions';
 import { CATEGORY_HAS_HISTORY } from '@/lib/category';
+import { VisitsTab } from './VisitsTab';
 
 function formatYear(year: number) {
   return year < 0 ? `기원전 ${-year}` : `${year}`;
@@ -25,11 +26,22 @@ export function LocationPopup({ locationId, onClose, onEdit, onDeleted, presenta
   const [detail, setDetail] = useState<LocationDetail | null>(null);
   const [events, setEvents] = useState<HistoricalEvent[]>([]);
   const [loading, setLoading] = useState(true);
+  const [tab, setTab] = useState<'info' | 'visits'>('info');
+  const [visits, setVisits] = useState<Visit[]>([]);
+
+  const loadVisits = useCallback(() => {
+    fetch(`/api/locations/${locationId}/visits`)
+      .then((res) => (res.ok ? res.json() : []))
+      .then(setVisits);
+  }, [locationId]);
 
   useEffect(() => {
     setLoading(true);
     setDetail(null);
     setEvents([]);
+    setVisits([]);
+    setTab('info');
+    loadVisits();
     fetch(`/api/locations/${locationId}`)
       .then((res) => (res.ok ? res.json() : null))
       .then(setDetail)
@@ -37,7 +49,7 @@ export function LocationPopup({ locationId, onClose, onEdit, onDeleted, presenta
     fetch(`/api/events?locationId=${locationId}`)
       .then((res) => (res.ok ? res.json() : []))
       .then(setEvents);
-  }, [locationId]);
+  }, [locationId, loadVisits]);
 
   async function handleDelete() {
     if (!confirm('이 지역 정보를 삭제할까요?')) return;
@@ -94,6 +106,32 @@ export function LocationPopup({ locationId, onClose, onEdit, onDeleted, presenta
       {loading && <p className="px-4 py-4 text-[13px] text-zinc-500">불러오는 중...</p>}
 
       {!loading && detail && (
+        <div className="flex gap-1 border-b border-white/[0.06] px-3 pt-2">
+          {(
+            [
+              { key: 'info', label: '정보', icon: Info },
+              { key: 'visits', label: visits.length > 0 ? `방문 기록 ${visits.length}` : '방문 기록', icon: Camera },
+            ] as const
+          ).map(({ key, label, icon: Icon }) => (
+            <button
+              key={key}
+              onClick={() => setTab(key)}
+              className={`-mb-px flex items-center gap-1.5 border-b-2 px-2.5 pb-2 pt-1 text-xs font-medium transition-colors ${
+                tab === key ? 'border-accent-strong text-zinc-50' : 'border-transparent text-zinc-500 hover:text-zinc-300'
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" strokeWidth={2.25} />
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {!loading && detail && tab === 'visits' && (
+        <VisitsTab locationId={locationId} visits={visits} onChanged={loadVisits} />
+      )}
+
+      {!loading && detail && tab === 'info' && (
         <div className="space-y-4 px-4 py-4 text-[13px]">
           {CATEGORY_HAS_HISTORY[detail.category ?? 'general'] && detail.history && (
             <div>

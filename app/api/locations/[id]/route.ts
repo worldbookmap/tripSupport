@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { supabase } from '@/lib/supabase';
 import { normalizeBookAuthors } from '@/lib/books';
+import { removeVisitPhotos } from '@/lib/visits';
 
 type Params = { params: Promise<{ id: string }> };
 
@@ -51,7 +52,10 @@ export async function PATCH(request: NextRequest, { params }: Params) {
 
 export async function DELETE(_request: NextRequest, { params }: Params) {
   const { id } = await params;
+  // 방문 기록 행은 cascade로 지워지지만 Storage의 사진은 따로 지워야 한다.
+  const { data: visits } = await supabase.from('visits').select('photos').eq('location_id', id);
   const { error } = await supabase.from('locations').delete().eq('id', id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  await removeVisitPhotos((visits ?? []).flatMap((v) => (v.photos as string[]) ?? []));
   return NextResponse.json({ ok: true });
 }
